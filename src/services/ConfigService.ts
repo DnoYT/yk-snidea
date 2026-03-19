@@ -18,6 +18,62 @@ export class ConfigService {
     public getRules(): Rule[] { return this._context.globalState.get<Rule[]>(this.RULES_KEY, []); }
     public getProfiles(): Profile[] { return this._context.globalState.get<Profile[]>(this.PROFILES_KEY, []); }
 
+    public async savePromptAsMarkdown(content: string, firstFileName: string = 'prompt'): Promise<string> {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders) throw new Error('未找到工作区');
+
+        const rootPath = workspaceFolders[0].uri.fsPath;
+        const ykideDir = path.join(rootPath, '.ykide');
+        if (!fs.existsSync(ykideDir)) fs.mkdirSync(ykideDir);
+
+        // 清理文件名中的非法字符
+        const safeBaseName = path.basename(firstFileName).replace(/[\\/:*?"<>|]/g, '_');
+
+        // 计算序号：查找已存在的文件 {{name}}_{{index}}.md
+        let index = 1;
+        let finalPath = '';
+        while (true) {
+            const fileName = `${safeBaseName}_${index}.md`;
+            finalPath = path.join(ykideDir, fileName);
+            if (!fs.existsSync(finalPath)) break;
+            index++;
+        }
+
+        fs.writeFileSync(finalPath, content, 'utf-8');
+        return finalPath;
+    }
+
+
+    private _getPromptConfigPath(): string | undefined {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders) return undefined;
+        const rootPath = workspaceFolders[0].uri.fsPath;
+        const dir = path.join(rootPath, '.ykide');
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        return path.join(dir, 'prompt-config.json');
+    }
+
+    // 保存主界面配置
+    public async savePromptConfig(data: any): Promise<void> {
+        const filePath = this._getPromptConfigPath();
+        if (!filePath) return;
+        fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+    }
+
+    // 获取主界面配置
+    public getPromptConfig(): any {
+        const filePath = this._getPromptConfigPath();
+        if (filePath && fs.existsSync(filePath)) {
+            try {
+                return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+            } catch (e) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+
     // --- 角色管理 (Roles) ---
     public async saveRole(role: Role): Promise<void> {
         const data = this.getRoles();

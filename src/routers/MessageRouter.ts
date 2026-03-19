@@ -3,6 +3,7 @@ import { FileService } from '../services/FileService';
 import { PromptService } from '../services/PromptService';
 import { ConfigService } from '../services/ConfigService';
 import { DatabaseService, DbConfig } from '../services/DatabaseService';
+import * as path from 'path';
 
 export class MessageRouter {
     constructor(
@@ -57,6 +58,56 @@ export class MessageRouter {
 
         if (message.type === 'exportSettings') {
             await this._configService.exportConfiguration();
+            return;
+        }
+
+        // 获取保存的提示词配置
+        if (message.type === 'getPromptConfig') {
+            const config = this._configService.getPromptConfig();
+            webviewView.webview.postMessage({
+                type: 'promptConfigData',
+                data: config
+            });
+            return;
+        }
+
+        // 保存当前的提示词配置
+        if (message.type === 'savePromptConfig') {
+            await this._configService.savePromptConfig(message.data);
+            // 可以选加一个通知：vscode.window.showInformationMessage('配置已保存');
+            return;
+        }
+
+        // 生成提示词逻辑 (确保也带上保存逻辑，或者分开)
+        if (message.type === 'generate') {
+            // 自动保存一次当前配置，方便下次打开回显
+            await this._configService.savePromptConfig(message.data);
+
+            const prompt = await this._promptService.build(message.data, this._context);
+            webviewView.webview.postMessage({
+                type: 'renderResult',
+                value: prompt
+            });
+            return;
+        }
+
+        // 1. 处理复制（通过后端 API 绕过前端限制）
+        if (message.type === 'copyToClipboard') {
+            await vscode.env.clipboard.writeText(message.value);
+            vscode.window.showInformationMessage('已复制到剪贴板');
+            return;
+        }
+
+        // 2. 保存为 Markdown 文件
+        if (message.type === 'savePromptFile') {
+            try {
+                const firstFile = message.files && message.files.length > 0 ? message.files[0] : 'prompt';
+                const savedPath = await this._configService.savePromptAsMarkdown(message.value, firstFile);
+                const fileName = path.basename(savedPath);
+                vscode.window.showInformationMessage(`保存成功: .ykide/${fileName}`);
+            } catch (err: any) {
+                vscode.window.showErrorMessage(`保存失败: ${err.message}`);
+            }
             return;
         }
 
