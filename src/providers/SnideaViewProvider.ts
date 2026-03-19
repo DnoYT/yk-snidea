@@ -3,6 +3,8 @@ import { getWebviewHtml } from '../utils/htmlGenerator';
 // 预留服务层导入（稍后我们会创建这些文件）
 import { FileService } from '../services/FileService';
 import { PromptService } from '../services/PromptService';
+import { ConfigService } from '../services/ConfigService';
+import { DatabaseService, DbConfig } from '../services/DatabaseService';
 
 /**
  * 侧边栏视图提供者：负责 Webview 生命周期管理与消息中转
@@ -11,6 +13,8 @@ export class SnideaViewProvider implements vscode.WebviewViewProvider {
 
     private readonly _fileService = new FileService();
     private readonly _promptService = new PromptService();
+    private readonly _configService: ConfigService;
+    private readonly _dbService = new DatabaseService();
 
     // 必须与 package.json 中的视图 ID 一致
     public static readonly viewType = 'yk-snidea.helloView';
@@ -18,7 +22,10 @@ export class SnideaViewProvider implements vscode.WebviewViewProvider {
     constructor(
         private readonly _extensionUri: vscode.Uri,
         private readonly _context: vscode.ExtensionContext
-    ) { }
+    ) {
+        // 初始化配置服务
+        this._configService = new ConfigService(_context);
+    }
 
     /**
      * 实现 resolveWebviewView 方法，初始化 Webview 内容
@@ -42,11 +49,89 @@ export class SnideaViewProvider implements vscode.WebviewViewProvider {
         });
     }
 
+    private _refreshSettings(webviewView: vscode.WebviewView) {
+        webviewView.webview.postMessage({
+            type: 'settingsData',
+            rules: this._configService.getRules(),
+            profiles: this._configService.getProfiles()
+        });
+    }
+
+    private async _handleDbSave(webviewView: vscode.WebviewView, config: DbConfig) {
+        try {
+            await this._dbService.saveConfig(this._context, config);
+            const tables = await this._dbService.testAndGetTables(config);
+
+            vscode.window.showInformationMessage('数据库连接成功！');
+            webviewView.webview.postMessage({ type: 'dbStatus', success: true, tables });
+        } catch (err: any) {
+            vscode.window.showErrorMessage(`连接失败: ${err.message}`);
+            webviewView.webview.postMessage({ type: 'dbStatus', success: false });
+        }
+    }
+
+    private async _handleTableSearch(webviewView: vscode.WebviewView, keyword: string) {
+        const config = this._dbService.getConfig(this._context);
+        if (!config) {
+            webviewView.webview.postMessage({ type: 'tableResults', tables: [] });
+            return;
+        }
+
+        try {
+            const allTables = await this._dbService.testAndGetTables(config);
+            // 简单模糊过滤
+            const filtered = allTables.filter(t => t.includes(keyword || ''));
+            webviewView.webview.postMessage({ type: 'tableResults', tables: filtered });
+        } catch (err) {
+            webviewView.webview.postMessage({ type: 'tableResults', tables: [] });
+        }
+    }
+
     /**
      * 消息路由处理器
      * 严格遵守 Early Return 模式，禁止使用 else
      */
     private async _handleMessageBus(webviewView: vscode.WebviewView, message: any) {
+
+        // 1. 保存并测试数据库连接
+        if (message.type === 'saveDbConfig') {
+            await this._handleDbSave(webviewView, message.data);
+            return;
+        }
+
+        // 2. 搜索数据库表 (对应前端输入 @ 时的逻辑)
+        if (message.type === 'searchTables') {
+            await this._handleTableSearch(webviewView, message.keyword);
+            return;
+        }
+
+
+        // 获取全部配置数据（初始化 Webview 时调用）
+        if (message.type === 'getSettings') {
+            webviewView.webview.postMessage({
+                type: 'settingsData',
+                rules: this._configService.getRules(),
+                profiles: this._configService.getProfiles()
+            });
+            return;
+        }
+
+        // 保存规则
+        if (message.type === 'saveRule') {
+            await this._configService.saveRule(message.data);
+            // 保存后刷新前端数据
+            this._refreshSettings(webviewView);
+            return;
+        }
+
+        // 保存规范绑定
+        if (message.type === 'saveProfile') {
+            await this._configService.saveProfile(message.data);
+            this._refreshSettings(webviewView);
+            return;
+        }
+
+
         if (message.type === 'log') {
             console.log(`[前端日志 | ${message.tag}]`, message.data);
             return;
@@ -77,8 +162,13 @@ export class SnideaViewProvider implements vscode.WebviewViewProvider {
 
         // 生成提示词
         if (message.type === 'generate') {
-            const prompt = await this._promptService.build(message.data);
-            webviewView.webview.postMessage({ type: 'renderResult', value: prompt });
+            // 关键点：增加第二个参数 this._context
+            const prompt = await this._promptService.build(message.data, this._context);
+
+            webviewView.webview.postMessage({
+                type: 'renderResult',
+                value: prompt
+            });
             return;
         }
 
@@ -89,45 +179,5 @@ export class SnideaViewProvider implements vscode.WebviewViewProvider {
         }
     }
 
-    /**
-     * 临时逻辑处理函数（后续将逻辑移入 Service）
-     */
-    private async _onOpenFile(filePath: string) {
-        if (!filePath) return;
 
-        try {
-            const document = await vscode.workspace.openTextDocument(vscode.Uri.file(filePath));
-            await vscode.window.showTextDocument(document, { preview: false });
-        } catch (error) {
-            vscode.window.showErrorMessage(`无法打开文件: ${filePath}`);
-        }
-    }
-
-    private async _onSearchFiles(webviewView: vscode.WebviewView, keyword: string) {
-        // 这里暂时保留简单逻辑，稍后我们会将其放入 FileService.ts
-        const searchPattern = keyword ? `**/*${keyword}*` : `**/*`;
-        const excludePattern = '**/{node_modules,.git,dist,out,.vscode}/**';
-        const uris = await vscode.workspace.findFiles(searchPattern, excludePattern, 20);
-
-        const files = uris.map(uri => ({
-            fsPath: uri.fsPath,
-            relativePath: vscode.workspace.asRelativePath(uri, false)
-        }));
-
-        webviewView.webview.postMessage({ type: 'searchResults', files });
-    }
-
-    private async _onGeneratePrompt(webviewView: vscode.WebviewView, data: any) {
-        // 进度条提示
-        vscode.window.withProgress({
-            location: vscode.ProgressLocation.Notification,
-            title: "正在构建 Snidea 提示词...",
-            cancellable: false
-        }, async () => {
-            // 此处逻辑后续由 PromptService.build(data) 接管
-            // 暂时模拟返回
-            const mockPrompt = `生成的提示词内容...`;
-            webviewView.webview.postMessage({ type: 'renderResult', value: mockPrompt });
-        });
-    }
 }
