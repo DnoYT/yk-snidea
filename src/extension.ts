@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { SnideaViewProvider } from './providers/SnideaViewProvider';
 import { initIdeFolder } from './utils/fileSystem';
 
+
 /**
  * 插件激活入口
  */

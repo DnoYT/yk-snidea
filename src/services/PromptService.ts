@@ -79,7 +79,7 @@ ${requirement}
             return '未提供数据库参考';
         }
 
-        const config = this._dbService.getConfig(context);
+        const config = this._dbService.getConfig();
         if (!config) {
             this._log('警告：尝试读取表结构但未配置数据库');
             return '未配置数据库信息';

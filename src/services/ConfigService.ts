@@ -1,110 +1,142 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
+import * as fs from 'fs';
 
-/**
- * 原子规则：例如“不使用else”
- */
-export interface Rule {
-    id: string;
-    name: string;
-    content: string;
-}
-
-/**
- * 规范配置：例如“Uniapp规范”，绑定了多个 Rule ID
- */
-export interface Profile {
-    id: string;
-    name: string;
-    ruleIds: string[];
-}
+export interface Role { id: string; name: string; }
+export interface Rule { id: string; name: string; content: string; }
+export interface Profile { id: string; name: string; ruleIds: string[]; }
 
 export class ConfigService {
+    private readonly ROLES_KEY = 'yk-snidea.roles';
     private readonly RULES_KEY = 'yk-snidea.rules';
     private readonly PROFILES_KEY = 'yk-snidea.profiles';
 
     constructor(private readonly _context: vscode.ExtensionContext) { }
 
-    // --- 规则管理 (Rules) ---
+    // --- 通用获取方法 ---
+    public getRoles(): Role[] { return this._context.globalState.get<Role[]>(this.ROLES_KEY, []); }
+    public getRules(): Rule[] { return this._context.globalState.get<Rule[]>(this.RULES_KEY, []); }
+    public getProfiles(): Profile[] { return this._context.globalState.get<Profile[]>(this.PROFILES_KEY, []); }
 
-    /**
-     * 获取所有规则
-     */
-    public getRules(): Rule[] {
-        return this._context.globalState.get<Rule[]>(this.RULES_KEY, []);
-    }
-
-    /**
-     * 保存或更新规则
-     */
-    public async saveRule(rule: Rule): Promise<void> {
-        const rules = this.getRules();
-        const index = rules.findIndex(r => r.id === rule.id);
+    // --- 角色管理 (Roles) ---
+    public async saveRole(role: Role): Promise<void> {
+        const data = this.getRoles();
+        const index = data.findIndex(item => item.id === role.id);
 
         if (index > -1) {
-            rules[index] = rule;
-            await this._context.globalState.update(this.RULES_KEY, [...rules]);
+            data[index] = role;
+            await this._context.globalState.update(this.ROLES_KEY, [...data]);
             return;
         }
-
-        rules.push(rule);
-        await this._context.globalState.update(this.RULES_KEY, [...rules]);
+        await this._context.globalState.update(this.ROLES_KEY, [...data, role]);
     }
 
-    /**
-     * 删除规则
-     */
-    public async deleteRule(ruleId: string): Promise<void> {
-        const rules = this.getRules().filter(r => r.id !== ruleId);
-        await this._context.globalState.update(this.RULES_KEY, rules);
+    public async deleteRole(id: string): Promise<void> {
+        const filtered = this.getRoles().filter(item => item.id !== id);
+        await this._context.globalState.update(this.ROLES_KEY, filtered);
+    }
+
+    // --- 规则管理 (Rules) ---
+    public async saveRule(rule: Rule): Promise<void> {
+        const data = this.getRules();
+        const index = data.findIndex(item => item.id === rule.id);
+
+        if (index > -1) {
+            data[index] = rule;
+            await this._context.globalState.update(this.RULES_KEY, [...data]);
+            return;
+        }
+        await this._context.globalState.update(this.RULES_KEY, [...data, rule]);
+    }
+
+    public async deleteRule(id: string): Promise<void> {
+        const filtered = this.getRules().filter(item => item.id !== id);
+        await this._context.globalState.update(this.RULES_KEY, filtered);
     }
 
     // --- 规范管理 (Profiles) ---
-
-    /**
-     * 获取所有规范
-     */
-    public getProfiles(): Profile[] {
-        return this._context.globalState.get<Profile[]>(this.PROFILES_KEY, []);
-    }
-
-    /**
-     * 保存或更新规范
-     */
     public async saveProfile(profile: Profile): Promise<void> {
-        const profiles = this.getProfiles();
-        const index = profiles.findIndex(p => p.id === profile.id);
+        const data = this.getProfiles();
+        const index = data.findIndex(item => item.id === profile.id);
 
         if (index > -1) {
-            profiles[index] = profile;
-            await this._context.globalState.update(this.PROFILES_KEY, [...profiles]);
+            data[index] = profile;
+            await this._context.globalState.update(this.PROFILES_KEY, [...data]);
             return;
         }
-
-        profiles.push(profile);
-        await this._context.globalState.update(this.PROFILES_KEY, [...profiles]);
+        await this._context.globalState.update(this.PROFILES_KEY, [...data, profile]);
     }
 
-    // --- 核心逻辑：解析规范 ---
+    public async deleteProfile(id: string): Promise<void> {
+        const filtered = this.getProfiles().filter(item => item.id !== id);
+        await this._context.globalState.update(this.PROFILES_KEY, filtered);
+    }
 
-    /**
-     * 根据规范 ID 获取最终合并后的提示词文本
-     * @param profileId 规范 ID
-     */
+    // --- 核心解析逻辑 ---
     public resolveProfileToText(profileId: string): string {
-        const profiles = this.getProfiles();
-        const profile = profiles.find(p => p.id === profileId);
-
-        if (!profile) return '未找到匹配的开发规范';
+        const profile = this.getProfiles().find(p => p.id === profileId);
+        if (!profile) return '未绑定特定开发规范。';
 
         const allRules = this.getRules();
-        // 找到该 Profile 绑定的所有 Rule 并提取 content
         const activeRules = profile.ruleIds
             .map(id => allRules.find(r => r.id === id))
             .filter(r => !!r) as Rule[];
 
-        if (activeRules.length === 0) return '该规范下未绑定任何具体规则';
+        if (activeRules.length === 0) return '该规范下暂无具体规则内容。';
 
-        // 拼接成带序号的列表
         return activeRules.map((r, i) => `${i + 1}. ${r.content}`).join('\n');
+    }
+
+    /**
+     * 导出所有配置到当前工作区的 .ykide 文件夹
+     */
+    public async exportConfiguration(): Promise<void> {
+        console.log("导出到配置");
+
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+
+        // 提前返回：未打开文件夹
+        if (!workspaceFolders || workspaceFolders.length === 0) {
+            vscode.window.showErrorMessage('未找到有效工作区，无法导出配置');
+            return;
+        }
+
+        const rootPath = workspaceFolders[0].uri.fsPath;
+        const targetDir = path.join(rootPath, '.ykide');
+
+        // 确保目录存在 (无 else)
+        if (!fs.existsSync(targetDir)) {
+            fs.mkdirSync(targetDir, { recursive: true });
+        }
+
+        // 构造数据
+        const exportData = {
+            version: "1.0.0",
+            exportTime: new Date().toLocaleString(),
+            roles: this.getRoles(),
+            rules: this.getRules(),
+            profiles: this.getProfiles()
+        };
+
+        // 构造文件名: yk-ide_202603191256.json
+        const timeStr = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12);
+        const fileName = `yk-ide_${timeStr}.json`;
+        const filePath = path.join(targetDir, fileName);
+
+        try {
+            fs.writeFileSync(filePath, JSON.stringify(exportData, null, 2), 'utf-8');
+
+            // 弹出成功提示并提供“打开文件夹”按钮
+            const action = await vscode.window.showInformationMessage(
+                `配置已成功导出至: .ykide/${fileName}`,
+                '打开文件夹'
+            );
+
+            if (action === '打开文件夹') {
+                vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(filePath));
+            }
+        } catch (error: any) {
+            vscode.window.showErrorMessage(`导出失败: ${error.message}`);
+        }
     }
 }
