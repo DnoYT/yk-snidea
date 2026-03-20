@@ -22,6 +22,8 @@ export class PromptService {
     private _log(message: string) {
         const now = new Date().toLocaleString();
         this._outputChannel.appendLine(`[${now}] ${message}`);
+        console.log(`[${now}] ${message}`);
+
     }
 
     /**
@@ -31,6 +33,8 @@ export class PromptService {
        */
     public async build(data: any, context: vscode.ExtensionContext): Promise<string> {
         this._log('开始拼装提示词...');
+        console.log("build data", data);
+
 
         // 1. 初始化 ConfigService 来解析 Profile
         const configService = new ConfigService(context);
@@ -50,7 +54,7 @@ export class PromptService {
         // 4. 动态获取上下文内容
         this._log(`正在读取数据库表结构: ${data.selectedTables?.join(', ') || '无'}`);
         const dbContext = await this._buildDbSection(data.selectedTables, context);
-        const fileContext = await this._buildFilesSection(data.files);
+        const fileContext = await this._buildFilesSection(data.selectedFiles || data.files);
 
         // 5. 开始动态组装 Prompt
         const promptParts: string[] = [];
