@@ -1,18 +1,23 @@
 <template>
-  <div class="main-form">
-    <!-- 头部表单区域 -->
+<div class="main-form">
     <div class="card">
       <div class="form-group">
         <label>
           <span class="iconify" data-icon="carbon:user-role"></span>
           AI 角色选择
         </label>
-        <select v-model="form.skill">
-          <option value="">-- 请选择或手动输入需求 --</option>
-          <option v-for="role in globalState.roles" :key="role.id" :value="role.name">
-            {{ role.name }}
-          </option>
-        </select>
+        <div class="select-wrapper">
+          <select v-model="form.skill">
+            <option value="">-- 手动输入需求角色 --</option>
+            <option
+              v-for="role in globalState.roles"
+              :key="role.id"
+              :value="role.content" 
+            >
+              {{ role.name }}
+            </option>
+          </select>
+        </div>
       </div>
 
       <div class="form-group">
@@ -20,18 +25,24 @@
           <span class="iconify" data-icon="carbon:rule"></span>
           绑定开发规范 (Profile)
         </label>
-        <select v-model="form.profileId">
-          <option value="">-- 手动输入规范 --</option>
-          <option v-for="p in globalState.profiles" :key="p.id" :value="p.id">
-            {{ p.name }}
-          </option>
-        </select>
+        <div class="select-wrapper">
+          <select v-model="form.profileId">
+            <option value="">-- 不绑定规范 --</option>
+            <option
+              v-for="p in globalState.profiles"
+              :key="p.id"
+              :value="p.id"
+            >
+              {{ p.name }}
+            </option>
+          </select>
+        </div>
       </div>
 
       <div class="form-group">
         <label>
           <span class="iconify" data-icon="carbon:edit"></span>
-          开发需求 (@文件, #数据库表)
+          开发需求 (@文件, #表结构)
         </label>
         <RichEditor
           placeholder="请输入开发任务详情..."
@@ -43,7 +54,7 @@
 
       <button class="btn-primary btn-generate" @click="handleGenerate" :disabled="loading">
         <span class="iconify" :class="{ 'spin': loading }" :data-icon="loading ? 'carbon:renew' : 'carbon:magic-wand'"></span>
-        {{ loading ? "解析上下文并生成中..." : "生成提示词" }}
+        {{ loading ? "正在解析..." : "生成提示词" }}
       </button>
     </div>
 
@@ -80,7 +91,7 @@ const loading = ref(false);
 const result = ref("");
 
 const form = reactive({
-  skill: "资深全栈工程师",
+  skill: "", // 这里现在存储的是 Role 的 content (System Prompt)
   profileId: "",
   selectedFiles: [],
   selectedTables: [],
@@ -93,15 +104,19 @@ const handleGenerate = () => {
     return;
   }
   loading.value = true;
+  // vscodeApi.postMessage({
+  //   type: "generate",
+  //   data: {
+  //     skill: form.skill,
+  //     profileId: form.profileId,
+  //     files: toRaw(form.selectedFiles),
+  //     selectedTables: toRaw(form.selectedTables),
+  //     requirement: form.requirement,
+  //   },
+  // });
   vscodeApi.postMessage({
     type: "generate",
-    data: {
-      skill: form.skill,
-      profileId: form.profileId,
-      files: toRaw(form.selectedFiles),
-      selectedTables: toRaw(form.selectedTables),
-      requirement: form.requirement,
-    },
+    data: toRaw(form) 
   });
 };
 
@@ -315,5 +330,41 @@ select option:disabled {
 /* 兼容深色/浅色主题的边框悬停 */
 select:hover {
   border-color: var(--vscode-settings-dropdownListBorder) || var(--vscode-button-background);
+}
+
+/* --- UI 样式美化 --- */
+.select-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+/* 模拟 VS Code 原生下拉框样式 */
+select {
+  width: 100%;
+  padding: 8px 30px 8px 10px;
+  background: var(--vscode-select-background);
+  color: var(--vscode-select-foreground);
+  border: 1px solid var(--vscode-select-border);
+  border-radius: 4px;
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+  appearance: none; /* 隐藏原生箭头 */
+  
+  /* 自定义箭头图标 */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='%23cccccc' d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+
+select:focus {
+  border-color: var(--vscode-focusBorder);
+}
+
+/* 尽量美化 Option（受限于系统内核，至少保证颜色一致） */
+select option {
+  background: var(--vscode-dropdown-background);
+  color: var(--vscode-dropdown-foreground);
+  padding: 10px;
 }
 </style>

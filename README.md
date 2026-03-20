@@ -1,71 +1,36 @@
-# yk-snidea README
+# YK Snidea - 网页版 AI 对话开发者的福音
 
-This is the README for your extension "yk-snidea". After writing up a brief description, we recommend including the following sections.
+**YK Snidea** 是一款由 **广西云科互动科技有限公司** 开发的 VS Code 插件。它的诞生是为了解决一个痛点：在不依赖昂贵的 AI 模型插件订阅的前提下，通过整理本地代码和数据库上下文，生成极其精准的提示词（Prompt），让你直接在网页端（如 ChatGPT, Claude, DeepSeek）也能获得丝滑的开发体验。
 
-## Features
+## 🌟 核心理念
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+你不需要支付高昂的月费。通过本插件，你可以轻松整理复杂的项目背景，将其转化为 AI 能够理解的结构化数据，手动粘贴至网页端，即可实现高质量的代码生成。
 
-For example if there is an image subfolder under your extension project workspace:
+## ✨ 主要功能
 
-\!\[feature X\]\(images/feature-x.png\)
+* **🎭 角色管理**：预设不同的 AI 角色（System Prompt），如“资深全栈”、“SQL 优化专家”，确保 AI 的回复专业对口。
+* **🔗 深度上下文关联**：
+  * 使用 `@`：快速搜索并读取工作区文件源码。
+  * 使用 `#`：自动读取 MySQL 数据库表结构（DDL）。
+* **📑 开发规范绑定**：将公司或项目的开发规范（Profile）一键注入，让 AI 写的代码自带“大厂风格”。
+* **💾 智能提示词存档**：生成的 Prompt 支持一键保存为 `.ykide/` 下的 Markdown 文件，方便回溯和二次迭代。
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+## 🛠️ 使用指南
 
-## Requirements
+1. **初始化**：在侧边栏点击图标打开 **YK Snidea**。
+2. **连数据库**：配置 MySQL 连接，确保插件能读取你的表结构。
+3. **写需求**：在输入框通过 `@` 引用关联代码，用 `#` 引用相关表名。
+4. **拿结果**：点击“生成提示词”，点击复制或保存，开启你的高效对话。
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+## 📅 版本记录
 
-## Extension Settings
+### 1.0.0 (2026-03-20)
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
-
-## Known Issues
-
-Calling out known issues can help limit users opening duplicate issues against your extension.
-
-## Release Notes
-
-Users appreciate release notes as you update your extension.
-
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
+* 🎉 初始版本正式发布！
+* 支持全量 Role/Rule/Profile 配置管理。
+* 实现基于 @ 和 # 的富文本编辑器。
+* 支持工作区级别的数据库配置保存。
 
 ---
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+**作者：云天**  
+**出品：广西云科互动科技有限公司**

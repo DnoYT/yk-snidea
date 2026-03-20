@@ -1,0 +1,10 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="128" height="128" rx="24" fill="#0d1117"/>
+  <!-- 方括号 -->
+  <path d="M45 34H35V94H45" stroke="#8b949e" stroke-width="10" stroke-linecap="round"/>
+  <path d="M83 34H93V94H83" stroke="#8b949e" stroke-width="10" stroke-linecap="round"/>
+  <!-- 提示符 -->
+  <rect x="54" y="80" width="20" height="6" fill="#3fb950"/>
+  <!-- 星星标识 (AI) -->
+  <path d="M64 25L67 35L77 38L67 41L64 51L61 41L51 38L61 35L64 25Z" fill="white"/>
+</svg>

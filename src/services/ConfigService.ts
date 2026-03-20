@@ -2,7 +2,11 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 
-export interface Role { id: string; name: string; }
+export interface Role {
+    id: string;
+    name: string;
+    content: string; // 存储具体的 System Prompt
+}
 export interface Rule { id: string; name: string; content: string; }
 export interface Profile { id: string; name: string; ruleIds: string[]; }
 

@@ -16,7 +16,6 @@ export class PromptService {
         this._fileService = new FileService();
         this._outputChannel = vscode.window.createOutputChannel('Snidea-Prompt');
     }
-
     /**
      * 内部日志记录
      */
@@ -26,26 +25,34 @@ export class PromptService {
     }
 
     /**
-     * 构建最终的 Prompt
-     * @param data 前端传来的表单数据
-     * @param context 插件上下文
-     */
+       * 构建最终的 Prompt
+       * @param data 前端传来的表单数据
+       * @param context 插件上下文
+       */
     public async build(data: any, context: vscode.ExtensionContext): Promise<string> {
         this._log('开始拼装提示词...');
 
-        // 1. 解析基础信息 (兼容前端字段名可能是 skill 或 skills)
+        // 1. 初始化 ConfigService 来解析 Profile
+        const configService = new ConfigService(context);
+
+        // 2. 解析基础信息
         const role = data.skill || data.skills || '你是一个资深的软件工程师。';
         const requirement = data.requirement || '请根据提供的上下文进行代码优化或功能实现。';
 
-        // 2. 解析规则 (这里假设前端传了 profileId，你可以在这里通过 ConfigService 获取对应的具体规则内容，或者前端直接传 rules 内容)
-        const rules = data.rules || ''; // 如果有开发规范，动态填入
+        // 3. 关键补全：解析 ProfileId 获取具体的规则文本
+        let rules = '';
+        if (data.profileId) {
+            this._log(`正在解析开发规范 Profile: ${data.profileId}`);
+            // 调用你写好的解析逻辑
+            rules = configService.resolveProfileToText(data.profileId);
+        }
 
-        // 3. 动态获取上下文内容
+        // 4. 动态获取上下文内容
         this._log(`正在读取数据库表结构: ${data.selectedTables?.join(', ') || '无'}`);
         const dbContext = await this._buildDbSection(data.selectedTables, context);
         const fileContext = await this._buildFilesSection(data.files);
 
-        // 4. 开始动态组装 Prompt
+        // 5. 开始动态组装 Prompt
         const promptParts: string[] = [];
 
         // --- A. 角色与任务 ---
@@ -53,7 +60,7 @@ export class PromptService {
         promptParts.push(`# 任务需求\n${requirement}`);
 
         // --- B. 开发规范 (如果有) ---
-        if (rules.trim()) {
+        if (rules && rules.trim()) {
             promptParts.push(`# 开发规范\n请在开发过程中严格遵循以下规范：\n${rules}`);
         }
 
@@ -70,7 +77,7 @@ export class PromptService {
             }
         }
 
-        // --- D. 输出要求 (强化大模型输出规范) ---
+        // --- D. 输出要求 ---
         promptParts.push(`
 # 输出要求
 1. **理解上下文**：请仔细阅读提供的数据库表结构和代码文件，不要凭空捏造字段、类名或方法。

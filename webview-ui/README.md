@@ -1,5 +1,25 @@
-# Vue 3 + Vite
+# YK Snidea (你的插件名称)
 
-This template should help get you started developing with Vue 3 in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+基于 Vue + VS Code 的 AI 开发助手，一键关联文件与数据库表结构。
 
-Learn more about IDE Support for Vue in the [Vue Docs Scaling up Guide](https://vuejs.org/guide/scaling-up/tooling.html#ide-support).
+## 主要功能
+
+* **角色管理**：预设不同的 AI System Prompt（如：资深前端、SQL 专家）。
+* **上下文关联**：支持在需求中使用 `@` 搜索并关联工作区文件，使用 `#` 搜索并读取数据库表结构 (DDL)。
+* **开发规范绑定**：一键将预设的开发规范（Profile）注入到提示词中。
+* **一键存档**：将生成的提示词保存为项目目录下的 Markdown 文件。
+
+## 如何使用
+
+1. 在侧边栏打开 **YK Snidea**。
+2. 配置你的数据库连接。
+3. 在主界面输入需求，通过 `@` 和 `#` 引用上下文。
+4. 点击“生成提示词”并保存或复制。
+
+## 版本记录
+
+### 1.0.0
+
+* 初始版本发布。
+* 支持角色、规则、规范的增删改查。
+* 支持文件与数据库表结构的上下文读取。
