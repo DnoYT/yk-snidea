@@ -1,0 +1,10 @@
+{
+  "skill": "",
+  "profileId": "",
+  "selectedFiles": [
+    "d:\\Users\\Ytian\\Desktop\\YtainStudy\\yk-official-website\\yk-snidea\\webview-ui\\src\\components\\MainForm.vue",
+    "d:\\Users\\Ytian\\Desktop\\YtainStudy\\yk-official-website\\yk-snidea\\.ykide\\RichEditor.vue_1.md"
+  ],
+  "selectedTables": [],
+  "requirement": "在 @ MainForm.vue 中我发现删除输入框中的tag，但是文件路径还是被读取了，帮我解决这个bug；\n插件为 @ RichEditor.vue_1.md "
+}
