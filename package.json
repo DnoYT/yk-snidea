@@ -2,7 +2,7 @@
   "name": "yk-snidea",
   "displayName": "yk-snidea",
   "description": "开发上下文整理神器：专为网页版 AI 模型对话设计，一键拼装高质量 Prompt，告别昂贵的插件订阅，让本地开发更智能。",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "icon": "logo.png",
   "publisher": "Guangxi-Yunke",
   "author": "云天",
@@ -20,10 +20,7 @@
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
-      {
-        "command": "yk-snidea.helloWorld",
-        "title": "Hello World"
-      },
+ 
       {
         "command": "yk-snidea.initIde",
         "title": "YK Snidea: 初始化 .ide 规范文件夹"
@@ -52,6 +49,7 @@
     "vscode:prepublish": "yarn run package",
     "compile": "yarn run check-types && yarn run lint && node esbuild.js",
     "watch": "npm-run-all -p watch:*",
+    "dev": "npm-run-all -p watch:*",
     "watch:esbuild": "node esbuild.js --watch",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
     "package": "yarn run check-types && yarn run lint && node esbuild.js --production",

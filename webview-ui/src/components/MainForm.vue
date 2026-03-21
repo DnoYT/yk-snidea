@@ -23,7 +23,7 @@
       <div class="form-group">
         <label>
           <span class="iconify" data-icon="carbon:rule"></span>
-          绑定开发规范 (Profile)
+          绑定开发规范
         </label>
         <div class="select-wrapper">
           <select v-model="form.profileId">

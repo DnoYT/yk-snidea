@@ -40,7 +40,7 @@ export class PromptService {
         const configService = new ConfigService(context);
 
         // 2. 解析基础信息
-        const role = data.skill || data.skills || '你是一个资深的软件工程师。';
+        const role = data.skill || data.skills || '';
         const requirement = data.requirement || '请根据提供的上下文进行代码优化或功能实现。';
 
         // 3. 关键补全：解析 ProfileId 获取具体的规则文本
@@ -60,7 +60,9 @@ export class PromptService {
         const promptParts: string[] = [];
 
         // --- A. 角色与任务 ---
-        promptParts.push(`# 角色设定\n${role}`);
+        if (role) {
+            promptParts.push(`# 角色设定\n${role}`);
+        }
         promptParts.push(`# 任务需求\n${requirement}`);
 
         // --- B. 开发规范 (如果有) ---
@@ -82,11 +84,11 @@ export class PromptService {
         }
 
         // --- D. 输出要求 ---
-        promptParts.push(`
-# 输出要求
-1. **理解上下文**：请仔细阅读提供的数据库表结构和代码文件，不要凭空捏造字段、类名或方法。
-2. **完整可用**：请输出逻辑完整、可运行的代码片段或完整文件。如果是修改已有代码，请清晰标明修改的位置。
-        `.trim());
+        //         promptParts.push(`
+        // # 输出要求
+        // 1. **理解上下文**：请仔细阅读提供的数据库表结构和代码文件，不要凭空捏造字段、类名或方法。
+        // 2. **完整可用**：请输出逻辑完整、可运行的代码片段或完整文件。如果是修改已有代码，请清晰标明修改的位置。
+        //         `.trim());
 
         const finalPrompt = promptParts.join('\n\n');
 
