@@ -1,26 +1,42 @@
 {
   "name": "yk-snidea",
-  "displayName": "yk-snidea",
-  "description": "开发上下文整理神器：专为网页版 AI 模型对话设计，一键拼装高质量 Prompt，告别昂贵的插件订阅，让本地开发更智能。",
-  "version": "0.0.5",
+  "displayName": "YK Snidea - AI 提示词 | 数据库 AI 助手",
+  "description": "开发上下文整理神器：专为网页版大模型对话设计，一键拼装高质量 Prompt (提示词)，自动读取本地代码与数据库表结构，告别昂贵订阅。",
+  "version": "1.0.1",
   "icon": "logo.png",
   "publisher": "Guangxi-Yunke",
   "author": "云天",
   "repository": {
     "type": "git",
-    "url": "广西云科互动科技有限公司"
+    "url": "https://github.com/DnoYT/yk-snidea.git"
+  },
+  "homepage": "https://github.com/DnoYT/yk-snidea",
+  "bugs": {
+    "url": "https://github.com/DnoYT/yk-snidea/issues"
   },
   "engines": {
     "vscode": "^1.110.0"
   },
   "categories": [
+    "Machine Learning",
+    "Snippets",
     "Other"
+  ],
+  "keywords": [
+    "AI",
+    "Prompt",
+    "提示词",
+    "数据库",
+    "Database",
+    "ChatGPT",
+    "DeepSeek",
+    "Claude",
+    "Copilot"
   ],
   "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
- 
       {
         "command": "yk-snidea.initIde",
         "title": "YK Snidea: 初始化 .ide 规范文件夹"
@@ -40,7 +56,7 @@
         {
           "type": "webview",
           "id": "yk-snidea.helloView",
-          "name": "Hello Window"
+          "name": "YK Snidea"
         }
       ]
     }
