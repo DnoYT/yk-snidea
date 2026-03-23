@@ -34,9 +34,9 @@
     </header>
 
     <div class="view-content">
-      <MainForm v-if="currentView === 'main'" />
-      <DatabasePanel v-if="currentView === 'database'" />
-      <SettingsPanel v-if="currentView === 'settings'" />
+      <MainForm v-show="currentView === 'main'" />
+      <DatabasePanel v-show="currentView === 'database'" />
+      <SettingsPanel v-show="currentView === 'settings'" />
     </div>
   </div>
 </template>

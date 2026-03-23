@@ -8,7 +8,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from "vue";
+import { ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { Editor, EditorContent, VueRenderer } from "@tiptap/vue-3";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -17,33 +17,64 @@ import tippy from "tippy.js";
 import MentionList from "./MentionList.vue";
 import { vscodeApi } from "../utils/vscode.js";
 
-const props = defineProps(["placeholder"]);
+const props = defineProps(["placeholder", "va"]);
 const emit = defineEmits(["update:files", "update:tables", "change"]);
 
 const editor = ref(null);
 
-// --- 异步搜索桥接器 ---
+// 监听父组件传入的初始值 (仅在编辑器为空时填充)
+watch(() => props.va, (newVal) => {
+  if (!editor.value) return;
+  const currentText = editor.value.getText();
+  if (!currentText.trim() && newVal) {
+    editor.value.commands.setContent(newVal);
+  }
+});
+
+// --- 异步搜索桥接器 (已消除 else，加入同名文件处理) ---
 const searchBackend = (type, keyword) => {
   return new Promise((resolve) => {
     const msgType = type === "file" ? "searchResults" : "tableResults";
 
     const listener = (event) => {
       const msg = event.data;
-      if (msg.type === msgType) {
-        window.removeEventListener("message", listener);
-        if (type === "file") {
-          resolve(
-            msg.files.map((f) => ({
+      if (msg.type !== msgType) return; // 提前返回
+
+      window.removeEventListener("message", listener);
+
+      if (type === "file") {
+        const files = msg.files || [];
+        
+        // 统计同名文件出现次数
+        const nameCountMap = {};
+        files.forEach(f => {
+          nameCountMap[f.fileName] = (nameCountMap[f.fileName] || 0) + 1;
+        });
+
+        resolve(
+          files.map((f) => {
+            let displayLabel = f.fileName;
+            // 如果存在同名文件，截取它的上一级目录拼接
+            if (nameCountMap[f.fileName] > 1) {
+              const parts = f.relativePath.split(/[\\/]/);
+              if (parts.length > 1) {
+                displayLabel = `${parts[parts.length - 2]}/${f.fileName}`;
+              }
+            }
+            return {
               id: f.fsPath,
-              label: f.fileName,
-              path: f.relativePath,
-            })),
-          );
-        } else {
-          resolve(msg.tables.map((t) => ({ id: t, label: t })));
-        }
+              label: displayLabel,
+              path: f.relativePath, // 携带相对路径供 title 使用
+            };
+          })
+        );
+        return; // 提前返回
       }
+
+      // 隐式 else：处理数据表
+      resolve((msg.tables || []).map((t) => ({ id: t, label: t })));
     };
+
     window.addEventListener("message", listener);
 
     vscodeApi.postMessage({
@@ -104,8 +135,22 @@ const suggestionConfig = (char, type) => ({
 
 // --- 初始化 Tiptap ---
 onMounted(() => {
+  // 扩展 Mention 节点，注入 Hover 提示 (title 属性)
   const FileMention = Mention.extend({
     name: "fileMention",
+    addAttributes() {
+      return {
+        ...this.parent?.(),
+        path: {
+          default: null,
+          parseHTML: element => element.getAttribute("title"),
+          renderHTML: attributes => {
+            if (!attributes.path) return {};
+            return { title: `相对路径: ${attributes.path}` }; // 悬浮显示路径
+          },
+        },
+      };
+    }
   }).configure({
     HTMLAttributes: { class: "inline-tag file-tag" },
     suggestion: suggestionConfig("@", "file"),
@@ -113,6 +158,14 @@ onMounted(() => {
 
   const TableMention = Mention.extend({
     name: "tableMention",
+    addAttributes() {
+      return {
+        ...this.parent?.(),
+        renderHTML: attributes => {
+          return { title: `表结构: ${attributes.id}\n(生成提示词时，将自动注入该表的完整 DDL 代码)` };
+        },
+      };
+    }
   }).configure({
     HTMLAttributes: { class: "inline-tag table-tag" },
     suggestion: suggestionConfig("#", "table"),
@@ -126,12 +179,17 @@ onMounted(() => {
         code: false,
         codeBlock: false,
         strike: false,
+        orderedList: false, 
+        bulletList: false,  
+        listItem: false,    
+        heading: false,     
       }),
-      Placeholder.configure({ placeholder: props.placeholder }),
+      Placeholder.configure({
+        placeholder: props.placeholder,
+      }),
       FileMention,
       TableMention,
     ],
-    // 【核心修改点】：处理粘贴识别标记
     editorProps: {
       handlePaste(view, event) {
         const { clipboardData } = event;
@@ -140,29 +198,27 @@ onMounted(() => {
 
         if (!text) return false;
 
-        // Tiptap 生成的节点自带 data-type 标记，这是我们的身份 ID
         const isInternalCopy =
           html &&
           (html.includes('data-type="fileMention"') ||
            html.includes('data-type="tableMention"'));
 
         if (isInternalCopy) {
-          // 1. 识别到标记：让 Tiptap 走原生解析，完美还原蓝色的 Tag，并且撤销栈正常
           return false;
-        } else {
-          // 2. 无标记：外部复制的纯文本或代码，当做字符串强行插入，保留 <el-button>
-          const { state, dispatch } = view;
-          dispatch(state.tr.insertText(text));
+        } 
+        
+        const { state, dispatch } = view;
+        dispatch(state.tr.insertText(text));
 
-          setTimeout(() => {
-            if (editor.value) emit("change", editor.value.getText());
-          }, 10);
+        setTimeout(() => {
+          if (!editor.value) return; 
+          emit("change", editor.value.getText());
+        }, 10);
 
-          return true; // 返回 true 拦截浏览器的默认富文本粘贴
-        }
+        return true; 
       },
     },
-    content: "",
+    content: props.va || "", // 初始值加载
     onUpdate: ({ editor }) => {
       emit("change", editor.getText());
 
@@ -189,6 +245,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+/* 保持你原本的样式不变 */
 .rich-editor-container {
   width: 100%;
 }
@@ -230,6 +287,7 @@ onBeforeUnmount(() => {
   color: var(--vscode-badge-foreground);
   vertical-align: middle;
   font-weight: 500;
+  cursor: help; /* 增加帮助手势提示可 hover */
 }
 
 :deep(.table-tag) {

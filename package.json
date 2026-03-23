@@ -2,7 +2,7 @@
   "name": "yk-snidea",
   "displayName": "YK Snidea - AI 提示词 | 数据库 AI 助手",
   "description": "开发上下文整理神器：专为网页版大模型对话设计，一键拼装高质量 Prompt (提示词)，自动读取本地代码与数据库表结构，告别昂贵订阅。",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "icon": "logo.png",
   "publisher": "Guangxi-Yunke",
   "author": "云天",
@@ -86,10 +86,12 @@
     "esbuild": "^0.27.3",
     "eslint": "^9.39.3",
     "npm-run-all": "^4.1.5",
+    "sass-embedded": "^1.98.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.56.1"
   },
   "dependencies": {
+    "@iconify/iconify": "^3.1.1",
     "mysql2": "^3.20.0"
   }
 }

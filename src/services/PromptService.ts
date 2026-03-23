@@ -35,19 +35,34 @@ export class PromptService {
         this._log('开始拼装提示词...');
         console.log("build data", data);
 
-
-        // 1. 初始化 ConfigService 来解析 Profile
+        // 1. 初始化 ConfigService 来解析 Profile 和 Rules
         const configService = new ConfigService(context);
 
         // 2. 解析基础信息
         const role = data.skill || data.skills || '';
         const requirement = data.requirement || '请根据提供的上下文进行代码优化或功能实现。';
 
-        // 3. 关键补全：解析 ProfileId 获取具体的规则文本
+        // 3. 核心补全：根据实际勾选的原子规则 (selectedRuleIds) 提取文本内容
         let rules = '';
-        if (data.profileId) {
-            this._log(`正在解析开发规范 Profile: ${data.profileId}`);
-            // 调用你写好的解析逻辑
+
+        if (data.selectedRuleIds && Array.isArray(data.selectedRuleIds) && data.selectedRuleIds.length > 0) {
+            this._log('正在提取动态勾选的原子规则...');
+            const allRules = configService.getRules();
+
+            // 提取出当前勾选的具体规则对象
+            const activeRules = data.selectedRuleIds
+                .map((id: string) => allRules.find((r: any) => r.id === id))
+                .filter((r: any) => !!r);
+
+            // 如果有合规数据，将其拼接成文本
+            if (activeRules.length > 0) {
+                rules = activeRules.map((r: any, i: number) => `${i + 1}. ${r.content}`).join('\n');
+            }
+        }
+
+        // 向上兼容：如果前端没有传 selectedRuleIds 或者长度为 0，回退使用 profileId 进行解析
+        if (!rules && data.profileId) {
+            this._log(`降级解析开发规范 Profile: ${data.profileId}`);
             rules = configService.resolveProfileToText(data.profileId);
         }
 
@@ -82,13 +97,6 @@ export class PromptService {
                 promptParts.push(`\n## 核心参考代码\n<files>\n${fileContext}\n</files>`);
             }
         }
-
-        // --- D. 输出要求 ---
-        //         promptParts.push(`
-        // # 输出要求
-        // 1. **理解上下文**：请仔细阅读提供的数据库表结构和代码文件，不要凭空捏造字段、类名或方法。
-        // 2. **完整可用**：请输出逻辑完整、可运行的代码片段或完整文件。如果是修改已有代码，请清晰标明修改的位置。
-        //         `.trim());
 
         const finalPrompt = promptParts.join('\n\n');
 

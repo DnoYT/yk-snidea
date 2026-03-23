@@ -60,7 +60,8 @@ export class ConfigService {
     // 保存主界面配置
     public async savePromptConfig(data: any): Promise<void> {
         const filePath = this._getPromptConfigPath();
-        if (!filePath) return;
+        if (!filePath) { return; };
+
         fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
     }
 
