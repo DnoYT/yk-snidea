@@ -127,25 +127,11 @@ export class ConfigService {
     }
 
     // --- Diff 配置管理 ---
+    // --- Diff 配置管理 ---
     public getDiffConfig(): any {
         return this._context.globalState.get(this.DIFF_CONFIG_KEY, {
             enabled: true,
-            prompt: `为了方便我直接复制并在编辑器中替换，请严格遵守以下输出格式：
-
-- **独立代码块:** 每一个修改点（SEARCH/REPLACE）必须单独包裹在 \`\`\`text ... \`\`\` 标签中。
-- **格式模板:**
-    文件：[文件相对路径]
-    <<<<<<< SEARCH
-    [此处放原文件中现有的、精确的代码片段，包含缩进]
-    =======
-    [此处放修改后的代码片段]
-    >>>>>>> REPLACE
-
-- **SEARCH 块唯一性:** SEARCH 片段必须包含足够的上下文（3-5行），确保我在 VS Code 中 Ctrl+F 搜索时是全局唯一的。
-- **禁止输出冗余:** 除了必要的“修改说明”外，不要在代码块内输出任何解释。禁止输出未修改的完整文件。
-
-在给出代码块之前，请先用简短的符号列表形式（如 - ）指出问题原因。
-在代码块之后，你可以继续做说明，或者说还要ai做说明，还差什么文件，接下来的计划是什么。`
+            prompt: `为了方便我直接复制并在编辑器中替换，请严格遵守以下输出格式：\n\n- **独立代码块:** 每一个修改点（SEARCH/REPLACE）必须单独包裹在 \`\`\`text ... \`\`\` 标签中。\n- **格式模板:**\n    文件：[文件相对路径]\n    <<<<<<< SEARCH\n    [此处放原文件中现有的、精确的代码片段，包含缩进]\n    =======\n    [此处放修改后的代码片段]\n    >>>>>>> REPLACE\n\n- **新建文件支持:** 如果你需要创建新文件，请保持 SEARCH 块为空（即 \`<<<<<<< SEARCH\` 下方直接接 \`=======\`），并在 REPLACE 块中写上新文件的完整代码。\n- **SEARCH 块唯一性:** SEARCH 片段必须包含足够的上下文（3-5行），确保我在 VS Code 中 Ctrl+F 搜索时是全局唯一的。\n- **禁止输出冗余:** 除了必要的“修改说明”外，不要在代码块内输出任何解释。禁止输出未修改的完整文件。\n\n在给出代码块之前，请先用简短的符号列表形式（如 - ）指出问题原因。\n在代码块之后，你可以继续做说明，或者说还要ai做说明，还差什么文件，接下来的计划是什么。`
         });
     }
 
@@ -169,6 +155,36 @@ export class ConfigService {
     public async deleteProfile(id: string): Promise<void> {
         const filtered = this.getProfiles().filter(item => item.id !== id);
         await this._context.globalState.update(this.PROFILES_KEY, filtered);
+    }
+
+    /**
+     * 初次安装：自动导入初始化配置 (供 extension.ts 激活时调用)
+     */
+    public async initDefaultsIfNeeded(): Promise<void> {
+        const isInitialized = this._context.globalState.get<boolean>('yk-snidea.initialized', false);
+        if (isInitialized) {
+            return;
+        }
+
+        const initJsonPath = path.join(this._context.extensionPath, 'init.json');
+        if (!fs.existsSync(initJsonPath)) {
+            return;
+        }
+
+        try {
+            const content = fs.readFileSync(initJsonPath, 'utf-8');
+            const parsed = JSON.parse(content);
+
+            if (parsed.roles) { await this._context.globalState.update(this.ROLES_KEY, parsed.roles); }
+            if (parsed.rules) { await this._context.globalState.update(this.RULES_KEY, parsed.rules); }
+            if (parsed.profiles) { await this._context.globalState.update(this.PROFILES_KEY, parsed.profiles); }
+            if (parsed.diffConfig) { await this._context.globalState.update(this.DIFF_CONFIG_KEY, parsed.diffConfig); }
+
+            await this._context.globalState.update('yk-snidea.initialized', true);
+            console.log("[ConfigService] 首次安装，已成功导入基础配置。");
+        } catch (e) {
+            console.error("初始化配置文件解析失败", e);
+        }
     }
 
     // --- 核心解析逻辑 ---

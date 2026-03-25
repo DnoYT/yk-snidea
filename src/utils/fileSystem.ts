@@ -1,27 +1,39 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
+import * as fs from 'fs';
 
 /**
- * 初始化当前工作区的 .ide 文件夹
+ * 初始化当前工作区的 .ykide 文件夹及忽略配置文件
  */
 export async function initIdeFolder(): Promise<void> {
     const workspaceFolders = vscode.workspace.workspaceFolders;
 
-    // 提前返回，避免 else 嵌套
     if (!workspaceFolders || workspaceFolders.length === 0) {
-        vscode.window.showErrorMessage('未打开任何工作区，无法创建 .ide 文件夹');
+        vscode.window.showErrorMessage('未打开任何工作区，无法创建 .ykide 文件夹');
         return;
     }
 
-    const rootUri = workspaceFolders[0].uri;
-    const ideFolderUri = vscode.Uri.joinPath(rootUri, '.ide');
+    const rootPath = workspaceFolders[0].uri.fsPath;
+    const ykideDir = path.join(rootPath, '.ykide');
+    const yktreeFile = path.join(ykideDir, '.yktree');
 
-    try {
-        // 尝试读取文件夹状态，如果报错说明不存在，直接跳到 catch 去创建
-        await vscode.workspace.fs.stat(ideFolderUri);
-        vscode.window.showInformationMessage('.ide 文件夹已存在');
-    } catch (error) {
-        // 文件夹不存在，执行创建
-        await vscode.workspace.fs.createDirectory(ideFolderUri);
-        vscode.window.showInformationMessage('已成功创建 .ide 文件夹！');
+    if (!fs.existsSync(ykideDir)) {
+        fs.mkdirSync(ykideDir, { recursive: true });
+        vscode.window.showInformationMessage('已成功创建 .ykide 文件夹！');
+    }
+
+    if (!fs.existsSync(yktreeFile)) {
+        const defaultIgnores = [
+            '# YK Snidea 忽略文件树配置',
+            '# 规则与 .gitignore 完全一致',
+            '.git',
+            '.vscode',
+            '.ykide',
+            '.ide',
+            'node_modules',
+            'dist',
+            'out'
+        ].join('\n');
+        fs.writeFileSync(yktreeFile, defaultIgnores, 'utf-8');
     }
 }

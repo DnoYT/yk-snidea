@@ -113,6 +113,32 @@ export class FileService {
         const rootPath = workspaceFolders[0].uri.fsPath;
         const treeLines: string[] = [];
 
+        // 加载 .yktree 过滤规则
+        const yktreePath = path.join(rootPath, '.ykide', '.yktree');
+        let ignoreRules = ['.vscode', 'node_modules', '.git', 'dist', 'out', '.ykide', '.ide'];
+        
+        if (fs.existsSync(yktreePath)) {
+            const content = fs.readFileSync(yktreePath, 'utf-8');
+            ignoreRules = content.split('\n')
+                .map(line => line.trim())
+                .filter(line => line.length > 0 && !line.startsWith('#'));
+        }
+
+        const checkIgnored = (relPath: string, item: string): boolean => {
+            for (const rule of ignoreRules) {
+                const isExtMatch = rule.startsWith('*.') && item.endsWith(rule.substring(1));
+                if (isExtMatch) return true;
+
+                const cleanRule = rule.replace(/^\/|\/$/g, '');
+                const isExactName = item === cleanRule;
+                if (isExactName) return true;
+
+                const isPathMatch = relPath === cleanRule || relPath.startsWith(`${cleanRule}/`) || relPath.includes(`/${cleanRule}/`);
+                if (isPathMatch) return true;
+            }
+            return false;
+        };
+
         const buildTree = (dirPath: string, prefix: string = '') => {
             let items: string[] = [];
             try {
@@ -122,7 +148,9 @@ export class FileService {
             }
 
             const filtered = items.filter(item => {
-                return !['.vscode', 'node_modules', '.git', 'dist', 'out', '.ykide', '.ide'].includes(item);
+                const fullPath = path.join(dirPath, item);
+                const relPath = path.relative(rootPath, fullPath).replace(/\\/g, '/');
+                return !checkIgnored(relPath, item);
             });
 
             const dirs: string[] = [];
