@@ -73,10 +73,32 @@
         />
       </div>
 
-      <button class="btn-primary btn-generate" @click="handleGenerate" :disabled="loading">
-        <Icon :icon="loading ? 'carbon:renew' : 'carbon:magic-wand'" :class="{ 'spin': loading }" />
-        {{ loading ? "正在解析..." : "生成提示词" }}
-      </button>
+      <div class="form-group">
+        <label>
+          <Icon icon="carbon:settings-adjust" class="header-icon" />
+          附加选项
+        </label>
+        <div class="options-group">
+          <label class="checkbox-label">
+            <input type="checkbox" v-model="form.includeFileTree" class="auto-checkbox" />
+            <span class="checkbox-text">附带当前工作区文件树</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" v-model="form.enableDiff" class="auto-checkbox" />
+            <span class="checkbox-text">启用 Diff/Replace 输出格式</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="main-actions">
+        <button class="btn-primary btn-generate" @click="handleGenerate" :disabled="loading">
+          <Icon :icon="loading ? 'carbon:renew' : 'carbon:magic-wand'" :class="{ 'spin': loading }" />
+          {{ loading ? "正在解析..." : "生成提示词" }}
+        </button>
+        <button class="btn-secondary" @click="applyDiff" title="从剪贴板解析并自动替换文件内容">
+          <Icon icon="carbon:code" /> 解析并应用剪贴板 Diff
+        </button>
+      </div>
     </div>
 
     <div class="result-section" v-if="result">
@@ -119,7 +141,13 @@ const form = reactive({
   selectedFiles: [],
   selectedTables: [],
   requirement: "",
+  includeFileTree: false,
+  enableDiff: true
 });
+
+const applyDiff = () => {
+  vscodeApi.postMessage({ type: "applyDiffFromClipboard" });
+};
 
 // --- 将数据转换为 el-tree 支持的格式 (无 else) ---
 const treeData = computed(() => {
@@ -262,4 +290,13 @@ select option { background-color: var(--vscode-dropdown-background); color: var(
 select option:disabled { color: var(--vscode-disabledForeground); opacity: 0.5; }
 select:hover { border-color: var(--vscode-settings-dropdownListBorder) || var(--vscode-button-background); }
 .select-wrapper { position: relative; width: 100%; }
+
+/* 新增的动作区域及附加选项样式 */
+.main-actions { display: flex; flex-direction: column; gap: 8px; }
+.btn-secondary { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); padding: 10px; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600; transition: opacity 0.2s; }
+.btn-secondary:hover { opacity: 0.8; }
+.options-group { display: flex; flex-direction: column; gap: 8px; background: var(--vscode-input-background); padding: 10px; border-radius: 4px; border: 1px solid var(--vscode-input-border); }
+.checkbox-label { display: flex; align-items: flex-start; gap: 6px; cursor: pointer; }
+.auto-checkbox { width: auto; margin: 2px 0 0 0; cursor: pointer; }
+.checkbox-text { font-size: 12px; user-select: none; line-height: 1.4; }
 </style>

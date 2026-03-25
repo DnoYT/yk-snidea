@@ -55,6 +55,7 @@ const globalState = reactive({
   roles: [],
   rules: [],
   profiles: [],
+  diffConfig: { prompt: '' },
   dbConnected: false,
   tables: [],
 });
@@ -72,6 +73,7 @@ onMounted(() => {
       globalState.roles = msg.roles || [];
       globalState.rules = msg.rules || [];
       globalState.profiles = msg.profiles || [];
+      globalState.diffConfig = msg.diffConfig || { prompt: '' };
       return;
     }
 

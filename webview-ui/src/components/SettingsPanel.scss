@@ -10,6 +10,10 @@
     justify-content: space-between;
     align-items: center;
     padding: 4px 0 10px 0;
+.actions {
+        display: flex;
+        gap: 12px;
+    }
 }
 
 .view-title {

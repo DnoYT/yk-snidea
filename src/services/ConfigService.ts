@@ -14,6 +14,7 @@ export class ConfigService {
     private readonly ROLES_KEY = 'yk-snidea.roles';
     private readonly RULES_KEY = 'yk-snidea.rules';
     private readonly PROFILES_KEY = 'yk-snidea.profiles';
+    private readonly DIFF_CONFIG_KEY = 'yk-snidea.diffConfig';
 
     constructor(private readonly _context: vscode.ExtensionContext) { }
 
@@ -24,11 +25,15 @@ export class ConfigService {
 
     public async savePromptAsMarkdown(content: string, firstFileName: string = 'prompt'): Promise<string> {
         const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (!workspaceFolders) throw new Error('未找到工作区');
+        if (!workspaceFolders) {
+            throw new Error('未找到工作区');
+        }
 
         const rootPath = workspaceFolders[0].uri.fsPath;
         const ykideDir = path.join(rootPath, '.ykide');
-        if (!fs.existsSync(ykideDir)) fs.mkdirSync(ykideDir);
+        if (!fs.existsSync(ykideDir)) {
+            fs.mkdirSync(ykideDir);
+        }
 
         // 清理文件名中的非法字符
         const safeBaseName = path.basename(firstFileName).replace(/[\\/:*?"<>|]/g, '_');
@@ -39,7 +44,9 @@ export class ConfigService {
         while (true) {
             const fileName = `${safeBaseName}_${index}.md`;
             finalPath = path.join(ykideDir, fileName);
-            if (!fs.existsSync(finalPath)) break;
+            if (!fs.existsSync(finalPath)) {
+                break;
+            }
             index++;
         }
 
@@ -50,10 +57,14 @@ export class ConfigService {
 
     private _getPromptConfigPath(): string | undefined {
         const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (!workspaceFolders) return undefined;
+        if (!workspaceFolders) {
+            return undefined;
+        }
         const rootPath = workspaceFolders[0].uri.fsPath;
         const dir = path.join(rootPath, '.ykide');
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
         return path.join(dir, 'prompt-config.json');
     }
 
@@ -115,6 +126,33 @@ export class ConfigService {
         await this._context.globalState.update(this.RULES_KEY, filtered);
     }
 
+    // --- Diff 配置管理 ---
+    public getDiffConfig(): any {
+        return this._context.globalState.get(this.DIFF_CONFIG_KEY, {
+            enabled: true,
+            prompt: `为了方便我直接复制并在编辑器中替换，请严格遵守以下输出格式：
+
+- **独立代码块:** 每一个修改点（SEARCH/REPLACE）必须单独包裹在 \`\`\`text ... \`\`\` 标签中。
+- **格式模板:**
+    文件：[文件相对路径]
+    <<<<<<< SEARCH
+    [此处放原文件中现有的、精确的代码片段，包含缩进]
+    =======
+    [此处放修改后的代码片段]
+    >>>>>>> REPLACE
+
+- **SEARCH 块唯一性:** SEARCH 片段必须包含足够的上下文（3-5行），确保我在 VS Code 中 Ctrl+F 搜索时是全局唯一的。
+- **禁止输出冗余:** 除了必要的“修改说明”外，不要在代码块内输出任何解释。禁止输出未修改的完整文件。
+
+在给出代码块之前，请先用简短的符号列表形式（如 - ）指出问题原因。
+在代码块之后，你可以继续做说明，或者说还要ai做说明，还差什么文件，接下来的计划是什么。`
+        });
+    }
+
+    public async saveDiffConfig(config: any): Promise<void> {
+        await this._context.globalState.update(this.DIFF_CONFIG_KEY, config);
+    }
+
     // --- 规范管理 (Profiles) ---
     public async saveProfile(profile: Profile): Promise<void> {
         const data = this.getProfiles();
@@ -136,14 +174,18 @@ export class ConfigService {
     // --- 核心解析逻辑 ---
     public resolveProfileToText(profileId: string): string {
         const profile = this.getProfiles().find(p => p.id === profileId);
-        if (!profile) return '未绑定特定开发规范。';
+        if (!profile) {
+            return '未绑定特定开发规范。';
+        }
 
         const allRules = this.getRules();
         const activeRules = profile.ruleIds
             .map(id => allRules.find(r => r.id === id))
             .filter(r => !!r) as Rule[];
 
-        if (activeRules.length === 0) return '该规范下暂无具体规则内容。';
+        if (activeRules.length === 0) {
+            return '该规范下暂无具体规则内容。';
+        }
 
         return activeRules.map((r, i) => `${i + 1}. ${r.content}`).join('\n');
     }

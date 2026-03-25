@@ -1,13 +1,21 @@
 <template>
   <div class="settings-panel">
-    <div class="global-action-bar">
+   <div class="global-action-bar">
       <span class="view-title">全局配置管理</span>
-      <Icon
-        icon="carbon:document-export"
-        class="icon-btn"
-        title="导出当前所有配置到 .ykide 文件夹"
-        @click="exportSettings"
-      />
+      <div class="actions">
+        <Icon
+          icon="carbon:document-import"
+          class="icon-btn"
+          title="从本地导入配置"
+          @click="importSettings"
+        />
+        <Icon
+          icon="carbon:document-export"
+          class="icon-btn"
+          title="导出当前所有配置到 .ykide 文件夹"
+          @click="exportSettings"
+        />
+      </div>
     </div>
 
     <div class="sub-tabs">
@@ -20,12 +28,16 @@
       <div :class="['tab-item', { active: activeTab === 'profile' }]" @click="activeTab = 'profile'">
         <Icon icon="carbon:category" /> 规范
       </div>
+      <div :class="['tab-item', { active: activeTab === 'diff' }]" @click="activeTab = 'diff'">
+        <Icon icon="carbon:code" /> Diff
+      </div>
     </div>
 
     <div class="tab-content">
       <RoleTab v-if="activeTab === 'role'" />
       <RuleTab v-if="activeTab === 'rule'" />
       <ProfileTab v-if="activeTab === 'profile'" />
+      <DiffTab v-if="activeTab === 'diff'" />
     </div>
   </div>
 </template>
@@ -37,13 +49,17 @@ import { vscodeApi } from "../utils/vscode.js";
 import RoleTab from "./settings/RoleTab.vue";
 import RuleTab from "./settings/RuleTab.vue";
 import ProfileTab from "./settings/ProfileTab.vue";
+import DiffTab from "./settings/DiffTab.vue";
 
 const activeTab = ref("role");
 
 const exportSettings = () => {
-  // 增加前端调试日志，确保点击事件被触发
   console.log("[前端] 准备发送导出配置请求...");
   vscodeApi.postMessage({ type: "exportSettings" });
+};
+
+const importSettings = () => {
+  vscodeApi.postMessage({ type: "importSettings" });
 };
 </script>
 

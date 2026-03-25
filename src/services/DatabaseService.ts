@@ -120,7 +120,9 @@ export class DatabaseService {
             return tables;
         } catch (error: any) {
             this._log('数据库操作失败！错误详情：', error.message);
-            if (connection) await (connection as any).end();
+            if (connection) {
+                await (connection as any).end();
+            }
             throw error;
         }
     }
@@ -147,7 +149,9 @@ export class DatabaseService {
             return ddl;
         } catch (error: any) {
             this._log(`读取表 ${tableName} 结构失败:`, error.message);
-            if (connection) await (connection as any).end();
+            if (connection) {
+                await (connection as any).end();
+            }
             return `-- [读取失败]: ${tableName}`;
         }
     }

@@ -71,23 +71,27 @@ export class PromptService {
         const dbContext = await this._buildDbSection(data.selectedTables, context);
         const fileContext = await this._buildFilesSection(data.selectedFiles || data.files);
 
-        // 5. 开始动态组装 Prompt
+        let fileTreeStr = '';
+        if (data.includeFileTree) {
+            this._log('正在获取文件树...');
+            fileTreeStr = await this._fileService.getWorkspaceFileTree();
+        }
+
+        // 5. 开始动态组装 Prompt (基于大模型注意力机制优化排序)
         const promptParts: string[] = [];
 
-        // --- A. 角色与任务 ---
+        // --- A. 角色设定 (最优先：确立 AI 身份与基调) ---
         if (role) {
             promptParts.push(`# 角色设定\n${role}`);
         }
-        promptParts.push(`# 任务需求\n${requirement}`);
 
-        // --- B. 开发规范 (如果有) ---
-        if (rules && rules.trim()) {
-            promptParts.push(`# 开发规范\n请在开发过程中严格遵循以下规范：\n${rules}`);
-        }
-
-        // --- C. 上下文信息 (如果有) ---
-        if (dbContext || fileContext) {
+        // --- B. 上下文信息 (容易造成中间迷失的庞大数据，置于中间层) ---
+        if (dbContext || fileContext || fileTreeStr) {
             promptParts.push(`# 上下文信息\n请结合以下提供的业务上下文进行分析和代码编写：`);
+
+            if (fileTreeStr) {
+                promptParts.push(`\n## 工作区文件树\n\`\`\`text\n${fileTreeStr}\n\`\`\``);
+            }
 
             if (dbContext) {
                 promptParts.push(`\n## 数据库表结构\n<database>\n${dbContext}\n</database>`);
@@ -95,6 +99,22 @@ export class PromptService {
 
             if (fileContext) {
                 promptParts.push(`\n## 核心参考代码\n<files>\n${fileContext}\n</files>`);
+            }
+        }
+
+        // --- C. 任务需求 (核心意图：靠近尾部，强化大模型短期记忆) ---
+        promptParts.push(`# 任务需求\n${requirement}`);
+
+        // --- D. 开发规范 (刚性约束：紧贴任务需求，防止代码跑偏) ---
+        if (rules && rules.trim()) {
+            promptParts.push(`# 开发规范\n请在开发过程中严格遵循以下规范：\n${rules}`);
+        }
+
+        // --- E. 输出格式 (最高优先级指令：必须放最后，强制接管最终输出形态) ---
+        if (data.enableDiff) {
+            const diffConfig = configService.getDiffConfig();
+            if (diffConfig && diffConfig.prompt) {
+                promptParts.push(`# 输出格式要求\n${diffConfig.prompt}`);
             }
         }
 

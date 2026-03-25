@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
 
 /**
  * 文件处理服务：负责工作区文件的搜索、读取与打开
@@ -70,7 +71,9 @@ export class FileService {
      * @param filePath 绝对路径
      */
     public async getFileContent(filePath: string): Promise<string> {
-        if (!filePath) return '';
+        if (!filePath) {
+            return '';
+        }
 
         try {
             const uri = vscode.Uri.file(filePath);
@@ -86,7 +89,9 @@ export class FileService {
      * 在编辑器中打开文件
      */
     public async openFile(filePath: string) {
-        if (!filePath) return;
+        if (!filePath) {
+            return;
+        }
 
         try {
             const document = await vscode.workspace.openTextDocument(vscode.Uri.file(filePath));
@@ -94,5 +99,51 @@ export class FileService {
         } catch (error) {
             vscode.window.showErrorMessage(`无法打开文件: ${filePath}`);
         }
+    }
+
+    /**
+     * 获取工作区文件树（过滤特殊文件夹）
+     */
+    public async getWorkspaceFileTree(): Promise<string> {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders || workspaceFolders.length === 0) {
+            return '';
+        }
+
+        const rootPath = workspaceFolders[0].uri.fsPath;
+        const treeLines: string[] = [];
+
+        const buildTree = (dirPath: string, prefix: string = '') => {
+            let items: string[] = [];
+            try {
+                items = fs.readdirSync(dirPath);
+            } catch (e) {
+                return;
+            }
+
+            // 过滤特殊文件夹和文件
+            const filtered = items.filter(item => {
+                return !['.vscode', 'node_modules', '.git', 'dist', 'out', '.ykide', '.ide'].includes(item);
+            });
+
+            filtered.forEach((item, index) => {
+                const fullPath = path.join(dirPath, item);
+                const isLast = index === filtered.length - 1;
+                const pointer = isLast ? '└── ' : '├── ';
+                treeLines.push(`${prefix}${pointer}${item}`);
+
+                try {
+                    if (fs.statSync(fullPath).isDirectory()) {
+                        buildTree(fullPath, prefix + (isLast ? '    ' : '│   '));
+                    }
+                } catch (e) {
+                    // Ignore errors like permission denied
+                }
+            });
+        };
+
+        treeLines.push(path.basename(rootPath));
+        buildTree(rootPath);
+        return treeLines.join('\n');
     }
 }
