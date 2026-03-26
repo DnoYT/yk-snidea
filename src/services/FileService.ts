@@ -199,16 +199,32 @@ export class FileService {
     }
 
     /**
+     * 预处理：清洗来自网页端的特殊不可见字符，统转为标准半角空格
+     */
+    private _normalizeWhitespace(str: string): string {
+        if (!str) {
+            return '';
+        }
+        return str
+            .replace(/\r\n/g, '\n') // 统一换行符
+            .replace(/[\u00A0\u200B\u200C\u200D\uFEFF]/g, ' ') // 替换 NBSP 及零宽字符为普通空格
+            .replace(/　/g, ' '); // 替换全角空格为普通空格
+    }
+
+    /**
      * 将剪贴板中的 Diff 内容应用到工作区文件
      */
     public async applyDiffFromClipboard() {
-        const text = await vscode.env.clipboard.readText();
-        if (!text) {
+        const rawText = await vscode.env.clipboard.readText();
+        if (!rawText) {
             vscode.window.showWarningMessage('剪贴板为空');
             return;
         }
 
-        const blockRegex = /文件：([^\n\r]+)[\s\S]*?<<<<<<<\s*SEARCH\r?\n([\s\S]*?)=======\r?\n([\s\S]*?)>>>>>>>\s*REPLACE/g;
+        // 统一清洗剪贴板文本中的格式化残留字符
+        const text = this._normalizeWhitespace(rawText);
+
+        const blockRegex = /文件：([^\n\r]+)[\s\S]*?<<<<<<<\s*SEARCH\n([\s\S]*?)=======\n([\s\S]*?)>>>>>>>\s*REPLACE/g;
         let match;
         let matchCount = 0;
         let successCount = 0;
@@ -234,35 +250,42 @@ export class FileService {
                 fs.mkdirSync(dirPath, { recursive: true });
             }
 
-            // 初始化内容：若文件不存在则视为空字符串，以支持“新建文件”
-            let fileContent = '';
+            // 记录原始文件的换行符特征
+            let originalContent = '';
             if (fs.existsSync(absPath)) {
-                fileContent = fs.readFileSync(absPath, 'utf-8');
+                originalContent = fs.readFileSync(absPath, 'utf-8');
             }
-            const isCrLf = fileContent.includes('\r\n'); 
+            const isCrLf = originalContent.includes('\r\n');
 
-            let fileNormalized = fileContent.replace(/\r\n/g, '\n');
-            const searchNormalized = searchContent.replace(/\r\n/g, '\n');
-            const replaceNormalized = replaceContent.replace(/\r\n/g, '\n');
+            // 统一清洗文件内容与匹配块
+            let fileNormalized = this._normalizeWhitespace(originalContent);
+            const searchNormalized = searchContent;
+            const replaceNormalized = replaceContent;
 
             let modified = false;
 
+            // 策略 A：精确匹配（高效、稳定）
             if (fileNormalized.includes(searchNormalized)) {
                 fileNormalized = fileNormalized.replace(searchNormalized, () => replaceNormalized);
                 modified = true;
             }
-            if (!fileNormalized.includes(searchNormalized)) {
+            
+            // 策略 B：宽容的正则模糊匹配（忽略首尾及段落间的空格扰动）
+            if (!modified) {
                 const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const searchPattern = escapeRegex(searchNormalized.trim()).replace(/\s+/g, '\\s+');
+                // 将原 Search 块的首尾空白剔除，并将中间任意长的连续空白符转化为 \s* 宽容匹配
+                const searchPattern = escapeRegex(searchNormalized.trim()).replace(/\s+/g, '\\s*');
                 const searchRegex = new RegExp(searchPattern);
 
                 if (searchRegex.test(fileNormalized)) {
+                    // 当使用宽容匹配时，由于难以确定原始缩进边界，强制剔除两端空白并应用
                     fileNormalized = fileNormalized.replace(searchRegex, () => replaceNormalized.trim());
                     modified = true;
                 }
             }
 
             if (modified) {
+                // 恢复原始换行符并写入文件
                 const finalContent = isCrLf ? fileNormalized.replace(/\n/g, '\r\n') : fileNormalized;
                 fs.writeFileSync(absPath, finalContent, 'utf-8');
                 successCount++;
