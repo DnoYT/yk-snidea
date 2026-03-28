@@ -36,26 +36,45 @@
         <div class="rules-header" v-if="globalState.rules && globalState.rules.length > 0">
           <span class="rules-title">原子规则清单</span>
           <div class="rules-actions">
-            <button class="text-btn" @click="selectAllRules">全选</button>
-            <button class="text-btn" @click="invertRules">反选</button>
-            <button class="text-btn" @click="clearRules">取消全选</button>
+            <button class="text-btn" @click="selectAllRules"><Icon icon="carbon:checkbox-checked" /> 全选</button>
+            <button class="text-btn" @click="invertRules"><Icon icon="carbon:select-02" /> 反选</button>
+            <button class="text-btn" @click="clearRules"><Icon icon="carbon:checkbox" /> 取消全选</button>
           </div>
         </div>
 
         <div class="tree-container" v-if="globalState.rules && globalState.rules.length > 0">
-          <el-tree
-            ref="treeRef"
-            :data="treeData"
-            show-checkbox
-            node-key="id"
-            :default-expand-all="true"
-            :default-checked-keys="form.selectedRuleIds"
-            @check="onTreeCheck"
-          >
-            <template #default="{ node, data }">
-              <span class="custom-tree-node" :title="data.content">{{ node.label }}</span>
-            </template>
-          </el-tree>
+          <div class="tree-pane left-pane">
+            <div class="pane-title">智能推荐 (展开)</div>
+            <el-tree
+              ref="leftTreeRef"
+              :data="leftTreeData"
+              show-checkbox
+              node-key="id"
+              :default-expand-all="true"
+              :default-checked-keys="form.selectedRuleIds"
+              @check="onTreeCheck"
+            >
+              <template #default="{ node, data }">
+                <span class="custom-tree-node" :title="data.content">{{ node.label }}</span>
+              </template>
+            </el-tree>
+          </div>
+          <div class="tree-pane right-pane">
+            <div class="pane-title">全部规则库 (折叠)</div>
+            <el-tree
+              ref="rightTreeRef"
+              :data="rightTreeData"
+              show-checkbox
+              node-key="id"
+              :default-expand-all="false"
+              :default-checked-keys="form.selectedRuleIds"
+              @check="onTreeCheck"
+            >
+              <template #default="{ node, data }">
+                <span class="custom-tree-node" :title="data.content">{{ node.label }}</span>
+              </template>
+            </el-tree>
+          </div>
         </div>
       </div>
 
@@ -146,7 +165,8 @@ import RichEditor from "./RichEditor.vue";
 const globalState = inject("globalState");
 const loading = ref(false);
 const result = ref("");
-const treeRef = ref(null); // el-tree 实例引用
+const leftTreeRef = ref(null);
+const rightTreeRef = ref(null);
 
 const form = reactive({
   skill: "", 
@@ -167,8 +187,8 @@ const applyJson = () => {
   vscodeApi.postMessage({ type: "applyJsonFromClipboard" });
 };
 
-// --- 将数据转换为 el-tree 支持的格式 (无 else) ---
-const treeData = computed(() => {
+// --- 构造全部规则库数据 (右侧树) ---
+const rightTreeData = computed(() => {
   const groups = {};
   const rules = globalState.rules || [];
 
@@ -185,16 +205,48 @@ const treeData = computed(() => {
   return Object.values(groups);
 });
 
-// --- 处理 el-tree 原生勾选事件 ---
-const onTreeCheck = (nodeObj, treeStatus) => {
-  form.selectedRuleIds = treeStatus.checkedKeys.filter(id => !id.toString().startsWith("group_"));
+// --- 构造智能推荐规则库数据 (左侧树) ---
+const leftTreeData = computed(() => {
+  if (!rightTreeData.value) return [];
+
+  const activeExts = new Set(["通用规则 (无前缀)"]);
+  if (form.selectedFiles && form.selectedFiles.length > 0) {
+    form.selectedFiles.forEach(file => {
+      const parts = file.split('.');
+      if (parts.length > 1) {
+        activeExts.add(parts.pop().toLowerCase());
+      }
+    });
+  }
+
+  return rightTreeData.value.filter(group => {
+    const groupName = group.label.toLowerCase();
+    return activeExts.has(groupName) || group.label === "通用规则 (无前缀)";
+  });
+});
+
+// --- 增强处理 el-tree 原生勾选事件 (双向同步合并) ---
+const onTreeCheck = (data, context) => {
+  if (!data) return;
+
+  const isChecked = context.checkedKeys.includes(data.id);
+  let currentSet = new Set(form.selectedRuleIds);
+
+  if (data.id.toString().startsWith("group_")) {
+    data.children.forEach(c => isChecked ? currentSet.add(c.id) : currentSet.delete(c.id));
+  } else {
+    isChecked ? currentSet.add(data.id) : currentSet.delete(data.id);
+  }
+
+  form.selectedRuleIds = Array.from(currentSet);
   form.profileId = ""; // 退出合集状态
+  syncTreeSelection();
 };
 
-// --- 更新 Tree UI 状态 ---
+// --- 同步双边 Tree UI 状态 ---
 const syncTreeSelection = () => {
-  if (!treeRef.value) return;
-  treeRef.value.setCheckedKeys(form.selectedRuleIds);
+  if (leftTreeRef.value) leftTreeRef.value.setCheckedKeys(form.selectedRuleIds);
+  if (rightTreeRef.value) rightTreeRef.value.setCheckedKeys(form.selectedRuleIds);
 };
 
 // --- 全选 / 反选 / 取消全选逻辑 ---
@@ -270,7 +322,7 @@ onMounted(() => {
       nextTick(() => syncTreeSelection());
     }
     if (msg.type === "renderResult") {
-      result.value = msg.value;
+      result.value = msg.value; 
       loading.value = false;
     }
   });
@@ -294,10 +346,18 @@ label { font-size: 12px; font-weight: 600; color: var(--vscode-foreground); disp
 .preview-box { background: var(--vscode-textCodeBlock-background); color: var(--vscode-descriptionForeground); padding: 8px 12px; border-radius: 4px; font-size: 11px; line-height: 1.5; border-left: 3px solid var(--vscode-textLink-foreground); white-space: pre-wrap; max-height: 120px; overflow-y: auto; }
 
 /* --- 🌟 Tree 专属样式 --- */
-.tree-container { max-height: 250px; overflow-y: auto; border: 1px solid var(--vscode-input-border); border-radius: 4px; padding: 8px; background: var(--vscode-input-background); }
-.custom-tree-node { font-size: 12px; color: var(--vscode-input-foreground); }
+.rules-actions .text-btn { display: flex; align-items: center; gap: 4px; }
+
+.tree-container { display: flex; gap: 12px; max-height: 250px; border: 1px solid var(--vscode-input-border); border-radius: 4px; padding: 8px; background: var(--vscode-input-background); }
+.tree-pane { flex: 1; overflow-y: auto; border-right: 1px solid var(--vscode-input-border); padding-right: 8px; }
+.tree-pane:last-child { border-right: none; padding-right: 0; }
+.pane-title { font-size: 11px; font-weight: bold; color: var(--vscode-descriptionForeground); margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px dashed var(--vscode-input-border); }
+
+.custom-tree-node { font-size: 12px; color: var(--vscode-input-foreground); white-space: pre-wrap; word-break: break-all; line-height: 1.4; display: block; padding: 4px 0; max-width: 100%; }
 
 :deep(.el-tree) { background: transparent; color: var(--vscode-input-foreground); }
+:deep(.el-tree-node__content) { height: auto !important; min-height: 26px; align-items: flex-start; }
+:deep(.el-tree-node__label) { white-space: normal; word-break: break-word; }
 :deep(.el-tree-node__content:hover) { background-color: var(--vscode-list-hoverBackground); }
 :deep(.el-checkbox__inner) { background-color: var(--vscode-checkbox-background, #ffffff) !important; border: 1px solid var(--vscode-checkbox-border, #888888) !important; }
 :deep(.el-checkbox__input.is-checked .el-checkbox__inner), :deep(.el-checkbox__input.is-indeterminate .el-checkbox__inner) { background-color: var(--vscode-button-background, #007acc) !important; border-color: var(--vscode-button-background, #007acc) !important; }
