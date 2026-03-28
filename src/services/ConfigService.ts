@@ -15,6 +15,7 @@ export class ConfigService {
     private readonly RULES_KEY = 'yk-snidea.rules';
     private readonly PROFILES_KEY = 'yk-snidea.profiles';
     private readonly DIFF_CONFIG_KEY = 'yk-snidea.diffConfig';
+    private readonly JSON_CONFIG_KEY = 'yk-snidea.jsonConfig';
 
     constructor(private readonly _context: vscode.ExtensionContext) { }
 
@@ -127,16 +128,27 @@ export class ConfigService {
     }
 
     // --- Diff 配置管理 ---
-    // --- Diff 配置管理 ---
     public getDiffConfig(): any {
         return this._context.globalState.get(this.DIFF_CONFIG_KEY, {
             enabled: true,
-            prompt: `为了方便我直接复制并在编辑器中替换，请严格遵守以下输出格式：\n\n- **独立代码块:** 每一个修改点（SEARCH/REPLACE）必须单独包裹在 \`\`\`text ... \`\`\` 标签中。\n- **格式模板:**\n    文件：[文件相对路径]\n    <<<<<<< SEARCH\n    [此处放原文件中现有的、精确的代码片段，包含缩进]\n    =======\n    [此处放修改后的代码片段]\n    >>>>>>> REPLACE\n\n- **新建文件支持:** 如果你需要创建新文件，请保持 SEARCH 块为空（即 \`<<<<<<< SEARCH\` 下方直接接 \`=======\`），并在 REPLACE 块中写上新文件的完整代码。\n- **SEARCH 块唯一性:** SEARCH 片段必须包含足够的上下文（3-5行），确保我在 VS Code 中 Ctrl+F 搜索时是全局唯一的。\n- **禁止输出冗余:** 除了必要的“修改说明”外，不要在代码块内输出任何解释。禁止输出未修改的完整文件。\n\n在给出代码块之前，请先用简短的符号列表形式（如 - ）指出问题原因。\n在代码块之后，你可以继续做说明，或者说还要ai做说明，还差什么文件，接下来的计划是什么。`
+            prompt: `*** CRITICAL OUTPUT FORMATTING INSTRUCTIONS ***\n(Append this to the very end of your responses, ensuring seamless integration into the developer's workflow.)\n\nTo prevent the web browser UI from rendering git-conflict markers or diff formatting, you MUST strictly adhere to the following raw text rules. \n\n1. **STRICT RAW TEXT BLOCKS:** Every single modification must be enclosed in a \`\`\`text ... \`\`\` block. ABSOLUTELY DO NOT use \`\`\`diff\`, \`\`\`javascript\`, \`\`\`html\`, or any other language tag. \n2. **EXACT SEARCH/REPLACE TEMPLATE:**\n   File: [Relative/File/Path.ext]\n   <<<<<<< SEARCH\n   [Insert EXACT existing code here. Must include 3-5 lines of unchanged context to ensure global uniqueness for Ctrl+F/Cmd+F]\n   =======\n   [Insert modified code here]\n   >>>>>>> REPLACE\n\n3. **NEW FILES:** If creating a new file, leave the SEARCH block completely empty (i.e., immediately place \`=======\` below \`<<<<<<< SEARCH\`).\n4. **NO TRUNCATION & NO REDUNDANCY:** Do not output the entire file. Only output the modified chunks. Do not add explanatory comments inside the code block unless they belong to the actual source code.\n5. **RESPONSE STRUCTURE:**\n   - **Phase 1 (Before code):** Briefly list the root causes of the issue using bullet points (-).\n   - **Phase 2 (The Code):** Output ONLY the raw text blocks formatted exactly as above.\n   - **Phase 3 (After code):** Briefly explain the next steps, any missing files, or pending logic that needs to be addressed.`
         });
     }
 
     public async saveDiffConfig(config: any): Promise<void> {
         await this._context.globalState.update(this.DIFF_CONFIG_KEY, config);
+    }
+
+    // --- JSON 配置管理 ---
+    public getJsonConfig(): any {
+        return this._context.globalState.get(this.JSON_CONFIG_KEY, {
+            enabled: false,
+            prompt: `### SYSTEM: STRUCTURED JSON UPDATE PROTOCOL ###\n\nYou must output all file modifications as a single, valid JSON object. This is for programmatic parsing. \n\n**1. OUTPUT FORMAT:**\nWrap the final JSON in a single \`\`\`json ... \`\`\` code block.\n\n**2. JSON SCHEMA:**\nThe JSON must follow this structure:\n{\n  "changes": [\n    {\n      "file": "path/to/file.ext",\n      "action": "replace", \n      "search": "exact text to find",\n      "replace": "new text to insert"\n    }\n  ]\n}\n*Note: Use "action": "create" for new files (leave "search" empty).*\n\n**3. CRITICAL RULES:**\n- **NO ESCAPING ERRORS:** Ensure all newlines in the code are represented as \\n and double quotes are correctly escaped as \\" within the JSON strings.\n- **UNIQUENESS:** The \`search\` string must be long enough (3-5 lines of context) to be globally unique within the file.\n- **NO COMMENTARY:** Do not include any text outside the JSON block unless explicitly asked for a summary.`
+        });
+    }
+
+    public async saveJsonConfig(config: any): Promise<void> {
+        await this._context.globalState.update(this.JSON_CONFIG_KEY, config);
     }
 
     // --- 规范管理 (Profiles) ---
@@ -179,6 +191,7 @@ export class ConfigService {
             if (parsed.rules) { await this._context.globalState.update(this.RULES_KEY, parsed.rules); }
             if (parsed.profiles) { await this._context.globalState.update(this.PROFILES_KEY, parsed.profiles); }
             if (parsed.diffConfig) { await this._context.globalState.update(this.DIFF_CONFIG_KEY, parsed.diffConfig); }
+            if (parsed.jsonConfig) { await this._context.globalState.update(this.JSON_CONFIG_KEY, parsed.jsonConfig); }
 
             await this._context.globalState.update('yk-snidea.initialized', true);
             console.log("[ConfigService] 首次安装，已成功导入基础配置。");

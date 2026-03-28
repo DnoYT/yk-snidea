@@ -3,17 +3,25 @@ import { FileService } from '../services/FileService';
 import { PromptService } from '../services/PromptService';
 import { ConfigService } from '../services/ConfigService';
 import { DatabaseService, DbConfig } from '../services/DatabaseService';
+import { DiffService } from '../services/DiffService';
+import { JsonService } from '../services/JsonService';
 import * as path from 'path';
 import * as fs from 'fs';
 
 export class MessageRouter {
+    private readonly _diffService: DiffService;
+    private readonly _jsonService: JsonService;
+
     constructor(
         private readonly _fileService: FileService,
         private readonly _promptService: PromptService,
         private readonly _configService: ConfigService,
         private readonly _dbService: DatabaseService,
         private readonly _context: vscode.ExtensionContext
-    ) { }
+    ) {
+        this._diffService = new DiffService();
+        this._jsonService = new JsonService();
+    }
 
     private _refreshSettings(webviewView: vscode.WebviewView) {
         webviewView.webview.postMessage({
@@ -21,7 +29,8 @@ export class MessageRouter {
             roles: this._configService.getRoles(),
             rules: this._configService.getRules(),
             profiles: this._configService.getProfiles(),
-            diffConfig: this._configService.getDiffConfig()
+            diffConfig: this._configService.getDiffConfig(),
+            jsonConfig: this._configService.getJsonConfig()
         });
     }
 
@@ -131,10 +140,16 @@ export class MessageRouter {
                 }
                 return;
 
+
             // ================= 3. 文件处理与代码交互 =================
             case 'applyDiffFromClipboard':
-                await this._fileService.applyDiffFromClipboard();
+                await this._diffService.applyDiffFromClipboard();
                 return;
+
+            case 'applyJsonFromClipboard':
+                await this._jsonService.applyJsonFromClipboard();
+                return;
+
 
             case 'copyToClipboard':
                 await vscode.env.clipboard.writeText(message.value);
@@ -185,6 +200,12 @@ export class MessageRouter {
                 await this._configService.saveDiffConfig(message.data);
                 this._refreshSettings(webviewView);
                 vscode.window.showInformationMessage('Diff 配置已保存');
+                return;
+
+            case 'saveJsonConfig':
+                await this._configService.saveJsonConfig(message.data);
+                this._refreshSettings(webviewView);
+                vscode.window.showInformationMessage('JSON 配置已保存');
                 return;
 
             // ================= 5. 数据库交互模块 =================

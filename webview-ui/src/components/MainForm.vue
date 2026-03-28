@@ -83,10 +83,19 @@
             <input type="checkbox" v-model="form.includeFileTree" class="auto-checkbox" />
             <span class="checkbox-text">附带当前工作区文件树</span>
           </label>
-          <label class="checkbox-label">
-            <input type="checkbox" v-model="form.enableDiff" class="auto-checkbox" />
-            <span class="checkbox-text">启用 Diff/Replace 输出格式</span>
-          </label>
+          
+          <div class="radio-group" style="margin-top: 4px; margin-bottom: 0;">
+            <span class="sub-label" style="line-height: 24px; margin-right: 8px;">输出格式:</span>
+            <label class="radio-label">
+              <input type="radio" v-model="form.outputFormat" value="diff" /> Diff
+            </label>
+            <label class="radio-label">
+              <input type="radio" v-model="form.outputFormat" value="json" /> JSON
+            </label>
+            <label class="radio-label">
+              <input type="radio" v-model="form.outputFormat" value="none" /> 不限制
+            </label>
+          </div>
         </div>
       </div>
 
@@ -95,9 +104,14 @@
           <Icon :icon="loading ? 'carbon:renew' : 'carbon:magic-wand'" :class="{ 'spin': loading }" />
           {{ loading ? "正在解析..." : "生成提示词" }}
         </button>
-        <button class="btn-secondary" @click="applyDiff" title="从剪贴板解析并自动替换文件内容">
-          <Icon icon="carbon:code" /> 解析并应用剪贴板 Diff
-        </button>
+        <div class="action-row">
+          <button class="btn-secondary" @click="applyDiff" title="从剪贴板解析并自动替换文件内容 (Diff)">
+            <Icon icon="carbon:code" /> 应用 Diff
+          </button>
+          <button class="btn-secondary" @click="applyJson" title="从剪贴板解析 JSON 格式的代码更新">
+            <Icon icon="carbon:json" /> 应用 JSON
+          </button>
+        </div>
       </div>
     </div>
 
@@ -142,11 +156,15 @@ const form = reactive({
   selectedTables: [],
   requirement: "",
   includeFileTree: false,
-  enableDiff: true
+  outputFormat: 'diff' // diff, json, none
 });
 
 const applyDiff = () => {
   vscodeApi.postMessage({ type: "applyDiffFromClipboard" });
+};
+
+const applyJson = () => {
+  vscodeApi.postMessage({ type: "applyJsonFromClipboard" });
 };
 
 // --- 将数据转换为 el-tree 支持的格式 (无 else) ---
@@ -217,7 +235,13 @@ const handleGenerate = () => {
     return;
   }
   loading.value = true;
-  vscodeApi.postMessage({ type: "generate", data: toRaw(form) });
+
+  const payload = toRaw(form);
+  // 向下兼容：根据单选框结果转换为服务端路由能够识别的布尔开关
+  payload.enableDiff = payload.outputFormat === 'diff';
+  payload.enableJson = payload.outputFormat === 'json';
+
+  vscodeApi.postMessage({ type: "generate", data: payload });
 };
 
 const copyResult = () => { vscodeApi.postMessage({ type: "copyToClipboard", value: result.value }); };
@@ -231,6 +255,16 @@ onMounted(() => {
   vscodeApi.onMessage((msg) => {
     if (msg.type === "promptConfigData" && msg.data) {
       Object.assign(form, msg.data);
+      
+      // 兼容历史老版本存储的配置项
+      if (msg.data.enableJson) {
+        form.outputFormat = 'json';
+      } else if (msg.data.enableDiff === false) {
+        form.outputFormat = 'none';
+      } else {
+        form.outputFormat = 'diff';
+      }
+
       if (!form.selectedRuleIds) form.selectedRuleIds = [];
       // 等待 DOM 渲染完毕后同步树状态
       nextTick(() => syncTreeSelection());
@@ -299,4 +333,12 @@ select:hover { border-color: var(--vscode-settings-dropdownListBorder) || var(--
 .checkbox-label { display: flex; align-items: flex-start; gap: 6px; cursor: pointer; }
 .auto-checkbox { width: auto; margin: 2px 0 0 0; cursor: pointer; }
 .checkbox-text { font-size: 12px; user-select: none; line-height: 1.4; }
+
+/* 针对新增排版与组件的扩展样式 */
+.radio-group { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 4px 0; }
+.radio-label { display: flex; align-items: center; gap: 4px; font-size: 12px; cursor: pointer; opacity: 0.9; transition: opacity 0.2s; }
+.radio-label:hover { opacity: 1; }
+.radio-label input { margin: 0; cursor: pointer; }
+.action-row { display: flex; gap: 8px; width: 100%; }
+.action-row .btn-secondary { flex: 1; font-size: 11px; padding: 8px 6px; }
 </style>

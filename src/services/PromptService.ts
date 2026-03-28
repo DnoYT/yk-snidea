@@ -111,7 +111,14 @@ export class PromptService {
         }
 
         // --- E. 输出格式 (最高优先级指令：必须放最后，强制接管最终输出形态) ---
-        if (data.enableDiff) {
+        if (data.enableJson) {
+            const jsonConfig = configService.getJsonConfig();
+            if (jsonConfig && jsonConfig.prompt) {
+                promptParts.push(`# 输出格式要求\n${jsonConfig.prompt}`);
+            }
+        }
+
+        if (!data.enableJson && data.enableDiff) {
             const diffConfig = configService.getDiffConfig();
             if (diffConfig && diffConfig.prompt) {
                 promptParts.push(`# 输出格式要求\n${diffConfig.prompt}`);
