@@ -45,26 +45,12 @@ const searchBackend = (type, keyword) => {
       if (type === "file") {
         const files = msg.files || [];
         
-        // 统计同名文件出现次数
-        const nameCountMap = {};
-        files.forEach(f => {
-          nameCountMap[f.fileName] = (nameCountMap[f.fileName] || 0) + 1;
-        });
-
         resolve(
           files.map((f) => {
-            let displayLabel = f.fileName;
-            // 如果存在同名文件，截取它的上一级目录拼接
-            if (nameCountMap[f.fileName] > 1) {
-              const parts = f.relativePath.split(/[\\/]/);
-              if (parts.length > 1) {
-                displayLabel = `${parts[parts.length - 2]}/${f.fileName}`;
-              }
-            }
             return {
               id: f.fsPath,
-              label: displayLabel,
-              path: f.relativePath, // 携带相对路径供 title 使用
+              label: f.relativePath,
+              path: f.relativePath,
             };
           })
         );

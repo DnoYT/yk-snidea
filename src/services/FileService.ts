@@ -12,6 +12,7 @@ export class FileService {
      * @returns 格式化后的文件列表
      */
     public async searchWorkspaceFiles(keyword: string) {
+
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (!workspaceFolders || workspaceFolders.length === 0) {
             return [];
@@ -21,21 +22,15 @@ export class FileService {
             let searchPattern = '**/*';
 
             if (keyword) {
-                const normalizedKeyword = keyword.replace(/\\/g, '/');
+                const cleanKeyword = keyword.replace(/\\/g, '/');
+                const parts = cleanKeyword.split('/').filter(p => p.trim().length > 0);
                 
-                if (normalizedKeyword.includes('/')) {
-                    const parts = normalizedKeyword.split('/').filter(p => p.trim().length > 0);
-                    
-                    if (parts.length > 1) {
-                        searchPattern = `**/${parts.map(p => `*${p}*`).join('/**/')}`;
-                    }
-                    if (parts.length === 1) {
-                        searchPattern = `**/*${parts[0]}*`;
-                    }
-                }
-                
-                if (!normalizedKeyword.includes('/')) {
-                    searchPattern = `**/*${keyword}*`;
+                if (parts.length > 0) {
+                    // 构造基础 glob 片段，如 comp -> **/*comp*
+                    const basePattern = `**/${parts.map(p => `*${p}*`).join('/**/')}`;
+                    // 使用 {} 集合同时匹配文件本身和以此为路径前缀的子文件
+                    // 这使得输入文件夹名称片段也能检索出其内部文件
+                    searchPattern = `{${basePattern},${basePattern}/**}`;
                 }
             }
 
@@ -48,13 +43,17 @@ export class FileService {
                 fileName: path.basename(uri.fsPath)
             }));
 
-            // 将 . 开头的文件或包含 . 开头的文件夹的项排布至末尾
+            // 将 . 或 _ 开头的文件，或包含此类文件夹的项排布至末尾
             results.sort((a, b) => {
-                const aIsDot = a.fileName.startsWith('.') || a.relativePath.includes('/.');
-                const bIsDot = b.fileName.startsWith('.') || b.relativePath.includes('/.');
+                const aIsSpecial = a.fileName.startsWith('.') || a.fileName.startsWith('_') || a.relativePath.includes('/.') || a.relativePath.includes('/_');
+                const bIsSpecial = b.fileName.startsWith('.') || b.fileName.startsWith('_') || b.relativePath.includes('/.') || b.relativePath.includes('/_');
                 
-                if (aIsDot && !bIsDot) { return 1; };
-                if (!aIsDot && bIsDot) { return -1; };
+                if (aIsSpecial && !bIsSpecial) {
+                    return 1;
+                }
+                if (!aIsSpecial && bIsSpecial) {
+                    return -1;
+                }
                 return 0;
             });
 

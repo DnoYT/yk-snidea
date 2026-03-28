@@ -141,14 +141,32 @@ export class ConfigService {
 
     // --- JSON 配置管理 ---
     public getJsonConfig(): any {
-        return this._context.globalState.get(this.JSON_CONFIG_KEY, {
-            enabled: false,
-            prompt: `### SYSTEM: STRUCTURED JSON UPDATE PROTOCOL ###\n\nYou must output all file modifications as a single, valid JSON object. This is for programmatic parsing. \n\n**1. OUTPUT FORMAT:**\nWrap the final JSON in a single \`\`\`json ... \`\`\` code block.\n\n**2. JSON SCHEMA:**\nThe JSON must follow this structure:\n{\n  "changes": [\n    {\n      "file": "path/to/file.ext",\n      "action": "replace", \n      "search": "exact text to find",\n      "replace": "new text to insert"\n    }\n  ]\n}\n*Note: Use "action": "create" for new files (leave "search" empty).*\n\n**3. CRITICAL RULES:**\n- **NO ESCAPING ERRORS:** Ensure all newlines in the code are represented as \\n and double quotes are correctly escaped as \\" within the JSON strings.\n- **UNIQUENESS:** The \`search\` string must be long enough (3-5 lines of context) to be globally unique within the file.\n- **NO COMMENTARY:** Do not include any text outside the JSON block unless explicitly asked for a summary.`
-        });
+        const fallbackPrompt = `### SYSTEM: STRUCTURED JSON UPDATE PROTOCOL ###\n\nYou must output all file modifications as a single, valid JSON object. This is for programmatic parsing. \n\n**1. OUTPUT FORMAT:**\nWrap the final JSON in a single \`\`\`json ... \`\`\` code block.\n\n**2. JSON SCHEMA:**\nThe JSON must follow this structure:\n{\n  "changes": [\n    {\n      "file": "path/to/file.ext",\n      "action": "replace", \n      "search": "exact text to find",\n      "replace": "new text to insert"\n    }\n  ]\n}\n*Note: Use "action": "create" for new files (leave "search" empty).*\n\n**3. CRITICAL RULES:**\n- **NO ESCAPING ERRORS:** Ensure all newlines in the code are represented as \\n and double quotes are correctly escaped as \\" within the JSON strings.\n- **UNIQUENESS:** The \`search\` string must be long enough (3-5 lines of context) to be globally unique within the file.\n- **NO COMMENTARY:** Do not include any text outside the JSON block unless explicitly asked for a summary.`;
+
+        const config = this._context.globalState.get<any>(this.JSON_CONFIG_KEY);
+
+        // 提前返回：如果已有配置且包含內容，則直接返回
+        if (config && config.prompt) {
+            return config;
+        }
+
+        // 否則返回默認結構
+        return {
+            enabled: true,
+            prompt: fallbackPrompt
+        };
     }
 
     public async saveJsonConfig(config: any): Promise<void> {
         await this._context.globalState.update(this.JSON_CONFIG_KEY, config);
+    }
+
+    public async resetDiffConfig(): Promise<void> {
+        await this._context.globalState.update(this.DIFF_CONFIG_KEY, undefined);
+    }
+
+    public async resetJsonConfig(): Promise<void> {
+        await this._context.globalState.update(this.JSON_CONFIG_KEY, undefined);
     }
 
     // --- 规范管理 (Profiles) ---

@@ -24,13 +24,18 @@ export class MessageRouter {
     }
 
     private _refreshSettings(webviewView: vscode.WebviewView) {
+        const diffConfig = this._configService.getDiffConfig();
+        const jsonConfig = this._configService.getJsonConfig();
+
+        console.log(`[MessageRouter] 正在同步配置 - DiffPrompt長度: ${diffConfig?.prompt?.length || 0}, JsonPrompt長度: ${jsonConfig?.prompt?.length || 0}`);
+
         webviewView.webview.postMessage({
             type: 'settingsData',
             roles: this._configService.getRoles(),
             rules: this._configService.getRules(),
             profiles: this._configService.getProfiles(),
-            diffConfig: this._configService.getDiffConfig(),
-            jsonConfig: this._configService.getJsonConfig()
+            diffConfig: diffConfig,
+            jsonConfig: jsonConfig
         });
     }
 
@@ -65,7 +70,7 @@ export class MessageRouter {
      * 主消息分发中心
      */
     public async handleMessage(webviewView: vscode.WebviewView, message: any) {
-        console.log("[MessageRouter] 收到请求:", message.type);
+        console.log("[MessageRouter] 收到请求:", message.type, message);
 
         switch (message.type) {
             // ================= 1. 全局配置与系统设置 =================
@@ -206,6 +211,18 @@ export class MessageRouter {
                 await this._configService.saveJsonConfig(message.data);
                 this._refreshSettings(webviewView);
                 vscode.window.showInformationMessage('JSON 配置已保存');
+                return;
+
+            case 'resetDiffConfig':
+                await this._configService.resetDiffConfig();
+                this._refreshSettings(webviewView);
+                vscode.window.showInformationMessage('Diff 配置已重置为默认');
+                return;
+
+            case 'resetJsonConfig':
+                await this._configService.resetJsonConfig();
+                this._refreshSettings(webviewView);
+                vscode.window.showInformationMessage('JSON 配置已重置为默认');
                 return;
 
             // ================= 5. 数据库交互模块 =================
