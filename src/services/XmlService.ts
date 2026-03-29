@@ -9,13 +9,13 @@ import { LoggerService } from './LoggerService';
  */
 export class XmlService {
     private _normalizeWhitespace(str: string): string {
-        if (!str) return '';
+        if (!str) { return ''; }
         // 统一换行符并移除特殊不可见字符
         return str.replace(/\r\n/g, '\n').replace(/[\u00A0\u200B\u200C\u200D\uFEFF]/g, ' ');
     }
 
     private _unescapeArtifacts(str: string): string {
-        if (!str) return '';
+        if (!str) { return ''; }
         // 修复 AI 在 XML/Markdown 混合模式下习惯性将引号转义为 \" 的问题
         return str.replace(/\\"/g, '"');
     }
@@ -65,19 +65,21 @@ export class XmlService {
             if (result) {
                 successCount++;
                 LoggerService.log(`[成功] 已应用修改: ${relPath}`);
-            } else {
-                LoggerService.log(`[失败] 未能在文件中匹配到 SEARCH 块: ${relPath}`, 'WARN');
-                vscode.window.showWarningMessage(`未能匹配到 SEARCH 块: ${relPath}`);
+                continue;
             }
+
+            LoggerService.log(`[失败] 未能在文件中匹配到 SEARCH 块: ${relPath}`, 'WARN');
+            vscode.window.showWarningMessage(`未能匹配到 SEARCH 块: ${relPath}`);
         }
 
         if (matchCount === 0) {
             LoggerService.log('未发现有效的 <file_change> 格式块，请检查剪贴板内容', 'WARN');
             vscode.window.showErrorMessage('未发现可识别的代码修改块');
-        } else {
-            LoggerService.log(`--- XML 解析结束：成功 ${successCount}/${matchCount} ---`);
-            vscode.window.showInformationMessage(`XML 应用完成: 成功 ${successCount}/${matchCount}`);
+            return;
         }
+
+        LoggerService.log(`--- XML 解析结束：成功 ${successCount}/${matchCount} ---`);
+        vscode.window.showInformationMessage(`XML 应用完成: 成功 ${successCount}/${matchCount}`);
     }
 
     private _applySingleChange(absPath: string, search: string, replace: string): boolean {
@@ -95,8 +97,9 @@ export class XmlService {
         const normalizedReplace = this._normalizeWhitespace(replace);
 
         if (!content.includes(normalizedSearch)) {
-            // 记录一下差异，方便调试
-            LoggerService.log(`SEARCH 块匹配失败。文件长度: ${content.length}, 搜索长度: ${normalizedSearch.length}`, 'DEBUG');
+            // 记录详细差异，方便人工手动定位和修复
+            LoggerService.log(`SEARCH 块匹配失败。文件: ${absPath}`, 'DEBUG');
+            LoggerService.log(`[待匹配内容开始]\n${normalizedSearch}\n[待匹配内容结束]`, 'DEBUG');
             return false;
         }
 

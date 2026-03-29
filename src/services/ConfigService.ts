@@ -93,7 +93,9 @@ export class ConfigService {
 
     private _getPromptConfigPath(): string | undefined {
         const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (!workspaceFolders) return undefined;
+        if (!workspaceFolders) {
+            return undefined;
+        }
 
         const rootPath = workspaceFolders[0].uri.fsPath;
         const dir = path.join(rootPath, '.ykide');
@@ -104,13 +106,17 @@ export class ConfigService {
 
     public async savePromptConfig(data: any): Promise<void> {
         const filePath = this._getPromptConfigPath();
-        if (!filePath) return;
+        if (!filePath) {
+            return;
+        }
         fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
     }
 
     public getPromptConfig(): any {
         const filePath = this._getPromptConfigPath();
-        if (!filePath || !fs.existsSync(filePath)) return null;
+        if (!filePath || !fs.existsSync(filePath)) {
+            return null;
+        }
 
         try {
             return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
@@ -149,7 +155,9 @@ export class ConfigService {
 
     public getDiffConfig(): any {
         const config = this._context.globalState.get<any>(this.DIFF_CONFIG_KEY);
-        if (config && config.prompt) return config;
+        if (config && config.prompt) {
+            return config;
+        }
 
         return {
             enabled: true,
@@ -163,7 +171,9 @@ export class ConfigService {
 
     public getJsonConfig(): any {
         const config = this._context.globalState.get<any>(this.JSON_CONFIG_KEY);
-        if (config && config.prompt) return config;
+        if (config && config.prompt) {
+            return config;
+        }
 
         return {
             enabled: true,
@@ -177,7 +187,9 @@ export class ConfigService {
 
     public getXmlConfig(): any {
         const config = this._context.globalState.get<any>(this.XML_CONFIG_KEY);
-        if (config && config.prompt) return config;
+        if (config && config.prompt) {
+            return config;
+        }
 
         return {
             enabled: true,
@@ -210,21 +222,25 @@ export class ConfigService {
 
     public async initDefaultsIfNeeded(): Promise<void> {
         const isInitialized = this._context.globalState.get<boolean>('yk-snidea.initialized', false);
-        if (isInitialized) return;
+        if (isInitialized) {
+            return;
+        }
 
         const initJsonPath = path.join(this._context.extensionPath, 'init.json');
-        if (!fs.existsSync(initJsonPath)) return;
+        if (!fs.existsSync(initJsonPath)) {
+            return;
+        }
 
         try {
             const content = fs.readFileSync(initJsonPath, 'utf-8');
             const parsed = JSON.parse(content);
 
-            if (parsed.roles) await this._context.globalState.update(this.ROLES_KEY, parsed.roles);
-            if (parsed.rules) await this._context.globalState.update(this.RULES_KEY, parsed.rules);
-            if (parsed.profiles) await this._context.globalState.update(this.PROFILES_KEY, parsed.profiles);
-            if (parsed.diffConfig) await this._context.globalState.update(this.DIFF_CONFIG_KEY, parsed.diffConfig);
-            if (parsed.jsonConfig) await this._context.globalState.update(this.JSON_CONFIG_KEY, parsed.jsonConfig);
-            if (parsed.xmlConfig) await this._context.globalState.update(this.XML_CONFIG_KEY, parsed.xmlConfig);
+            if (parsed.roles) { await this._context.globalState.update(this.ROLES_KEY, parsed.roles); }
+            if (parsed.rules) { await this._context.globalState.update(this.RULES_KEY, parsed.rules); }
+            if (parsed.profiles) { await this._context.globalState.update(this.PROFILES_KEY, parsed.profiles); }
+            if (parsed.diffConfig) { await this._context.globalState.update(this.DIFF_CONFIG_KEY, parsed.diffConfig); }
+            if (parsed.jsonConfig) { await this._context.globalState.update(this.JSON_CONFIG_KEY, parsed.jsonConfig); }
+            if (parsed.xmlConfig) { await this._context.globalState.update(this.XML_CONFIG_KEY, parsed.xmlConfig); }
 
             await this._context.globalState.update('yk-snidea.initialized', true);
         } catch (e) {
@@ -234,7 +250,9 @@ export class ConfigService {
 
     public resolveProfileToText(profileId: string): string {
         const profile = this.getProfiles().find(p => p.id === profileId);
-        if (!profile) return '未绑定特定开发规范。';
+        if (!profile) {
+            return '未绑定特定开发规范。';
+        }
 
         const allRules = this.getRules();
         const activeRules = profile.ruleIds
