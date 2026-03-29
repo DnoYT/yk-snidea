@@ -11,7 +11,7 @@ export class LoggerService {
      * @param message 日志消息
      * @param level 级别：INFO | WARN | ERROR
      */
-    public static log(message: string, level: 'INFO' | 'WARN' | 'ERROR' = 'INFO'): void {
+    public static log(message: string, level: 'INFO' | 'WARN' | 'DEBUG' | 'ERROR' = 'INFO'): void {
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (!workspaceFolders) return;
 
@@ -24,6 +24,8 @@ export class LoggerService {
         const filePath = path.join(logDir, fileName);
         const timestamp = new Date().toLocaleString();
         const logLine = `[${timestamp}] [${level}] ${message}\n`;
+        console.log(logLine);
+
 
         try {
             fs.appendFileSync(filePath, logLine, 'utf-8');

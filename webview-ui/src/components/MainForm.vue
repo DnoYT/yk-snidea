@@ -105,14 +105,8 @@
           
           <div class="radio-group" style="margin-top: 4px; margin-bottom: 0;">
             <span class="sub-label" style="line-height: 24px; margin-right: 8px;">输出格式:</span>
-            <label class="radio-label">
-              <input type="radio" v-model="form.outputFormat" value="diff" /> Diff
-            </label>
-            <label class="radio-label">
-              <input type="radio" v-model="form.outputFormat" value="json" /> JSON
-            </label>
-            <label class="radio-label">
-              <input type="radio" v-model="form.outputFormat" value="none" /> 不限制
+            <label class="radio-label" v-for="opt in formatOptions" :key="opt.value">
+              <input type="radio" v-model="form.outputFormat" :value="opt.value" /> {{ opt.label }}
             </label>
           </div>
         </div>
@@ -124,11 +118,14 @@
           {{ loading ? "正在解析..." : "生成提示词" }}
         </button>
         <div class="action-row">
-          <button class="btn-secondary" @click="applyDiff" title="从剪贴板解析并自动替换文件内容 (Diff)">
-            <Icon icon="carbon:code" /> 应用 Diff
-          </button>
-          <button class="btn-secondary" @click="applyJson" title="从剪贴板解析 JSON 格式的代码更新">
-            <Icon icon="carbon:json" /> 应用 JSON
+          <button 
+            v-for="btn in parseActions" 
+            :key="btn.id"
+            :class="['btn-parse', btn.isHighlight ? 'btn-xml-highlight' : 'btn-secondary']"
+            :title="btn.title"
+            @click="btn.handler"
+          >
+            <Icon :icon="btn.icon" /> {{ btn.label }}
           </button>
         </div>
       </div>
@@ -168,6 +165,13 @@ const result = ref("");
 const leftTreeRef = ref(null);
 const rightTreeRef = ref(null);
 
+const formatOptions = [
+  { label: 'XML 标签', value: 'xml' },
+  { label: 'Diff', value: 'diff' },
+  { label: 'JSON', value: 'json' },
+  { label: '不限制', value: 'none' }
+];
+
 const form = reactive({
   skill: "", 
   profileId: "",
@@ -176,8 +180,12 @@ const form = reactive({
   selectedTables: [],
   requirement: "",
   includeFileTree: false,
-  outputFormat: 'diff' // diff, json, none
+  outputFormat: 'xml' // xml, diff, json, none (默认改为更稳定的 xml)
 });
+
+const applyXml = () => {
+  vscodeApi.postMessage({ type: "applyXmlFromClipboard" });
+};
 
 const applyDiff = () => {
   vscodeApi.postMessage({ type: "applyDiffFromClipboard" });
@@ -186,6 +194,37 @@ const applyDiff = () => {
 const applyJson = () => {
   vscodeApi.postMessage({ type: "applyJsonFromClipboard" });
 };
+
+/**
+ * 剪贴板解析操作配置
+ * 提取为配置对象以支持 v-for 渲染，并突出 XML 解析的权重
+ */
+const parseActions = [
+  { 
+    id: 'xml', 
+    label: '解析 XML', 
+    icon: 'carbon:code', 
+    isHighlight: true, 
+    title: '从剪贴板解析 XML 格式的代码更新',
+    handler: applyXml 
+  },
+  { 
+    id: 'diff', 
+    label: '解析 Diff', 
+    icon: 'carbon:compare', 
+    isHighlight: false, 
+    title: '从剪贴板解析并自动替换文件内容 (Diff)',
+    handler: applyDiff 
+  },
+  { 
+    id: 'json', 
+    label: '解析 JSON', 
+    icon: 'carbon:json', 
+    isHighlight: false, 
+    title: '从剪贴板解析 JSON 格式的代码更新',
+    handler: applyJson 
+  }
+];
 
 // --- 构造全部规则库数据 (右侧树) ---
 const rightTreeData = computed(() => {
@@ -290,6 +329,7 @@ const handleGenerate = () => {
 
   const payload = toRaw(form);
   // 向下兼容：根据单选框结果转换为服务端路由能够识别的布尔开关
+  payload.enableXml = payload.outputFormat === 'xml';
   payload.enableDiff = payload.outputFormat === 'diff';
   payload.enableJson = payload.outputFormat === 'json';
 
@@ -309,11 +349,13 @@ onMounted(() => {
       Object.assign(form, msg.data);
       
       // 兼容历史老版本存储的配置项
-      if (msg.data.enableJson) {
+      if (msg.data.enableXml) {
+        form.outputFormat = 'xml';
+      } else if (msg.data.enableJson) {
         form.outputFormat = 'json';
-      } else if (msg.data.enableDiff === false) {
+      } else if (msg.data.enableDiff === false && !msg.data.enableXml) {
         form.outputFormat = 'none';
-      } else {
+      } else if (msg.data.enableDiff) {
         form.outputFormat = 'diff';
       }
 
@@ -400,5 +442,9 @@ select:hover { border-color: var(--vscode-settings-dropdownListBorder) || var(--
 .radio-label:hover { opacity: 1; }
 .radio-label input { margin: 0; cursor: pointer; }
 .action-row { display: flex; gap: 8px; width: 100%; }
-.action-row .btn-secondary { flex: 1; font-size: 11px; padding: 8px 6px; }
+.btn-parse { flex: 1; font-size: 11px; padding: 8px 6px; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 4px; cursor: pointer; border: none; font-weight: 600; transition: all 0.2s; }
+.btn-xml-highlight { background: var(--vscode-button-background); color: var(--vscode-button-foreground); flex: 1.5; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+.btn-xml-highlight:hover { background: var(--vscode-button-hoverBackground); transform: translateY(-1px); }
+.btn-secondary { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }
+.btn-secondary:hover { background: var(--vscode-button-secondaryHoverBackground) || var(--vscode-toolbar-hoverBackground); }
 </style>

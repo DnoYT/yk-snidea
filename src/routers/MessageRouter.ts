@@ -5,12 +5,14 @@ import { ConfigService } from "../services/ConfigService";
 import { DatabaseService, DbConfig } from "../services/DatabaseService";
 import { DiffService } from "../services/DiffService";
 import { JsonService } from "../services/JsonService";
+import { XmlService } from "../services/XmlService";
 import * as path from "path";
 import * as fs from "fs";
 
 export class MessageRouter {
     private readonly _diffService: DiffService;
     private readonly _jsonService: JsonService;
+    private readonly _xmlService: XmlService;
 
     constructor(
         private readonly _fileService: FileService,
@@ -21,6 +23,7 @@ export class MessageRouter {
     ) {
         this._diffService = new DiffService();
         this._jsonService = new JsonService();
+        this._xmlService = new XmlService();
     }
 
     /**
@@ -37,6 +40,7 @@ export class MessageRouter {
           profiles: this._configService.getProfiles(),
           diffConfig: diffConfig,
           jsonConfig: jsonConfig,
+          xmlConfig: this._configService.getXmlConfig(),
       });
     }
 
@@ -210,6 +214,11 @@ export class MessageRouter {
               await this._jsonService.applyJsonFromClipboard();
               return;
 
+          // 从剪贴板读取 XML 格式代码更新并应用
+          case "applyXmlFromClipboard":
+              await this._xmlService.applyXmlFromClipboard();
+              return;
+
           // 文本复制通用指令
           case "copyToClipboard":
               await vscode.env.clipboard.writeText(message.value);
@@ -273,6 +282,12 @@ export class MessageRouter {
               vscode.window.showInformationMessage("JSON 配置已保存");
               return;
 
+          case "saveXmlConfig":
+              await this._configService.saveXmlConfig(message.data);
+              this._refreshSettings(webviewView);
+              vscode.window.showInformationMessage("XML 配置已保存");
+              return;
+
           case "resetDiffConfig":
               await this._configService.resetDiffConfig();
               this._refreshSettings(webviewView);
@@ -283,6 +298,12 @@ export class MessageRouter {
               await this._configService.resetJsonConfig();
               this._refreshSettings(webviewView);
               vscode.window.showInformationMessage("JSON 配置已重置为默认");
+              return;
+
+          case "resetXmlConfig":
+              await this._configService.resetXmlConfig();
+              this._refreshSettings(webviewView);
+              vscode.window.showInformationMessage("XML 配置已重置为默认");
               return;
 
           // ================= 5. 数据库交互模块 =================

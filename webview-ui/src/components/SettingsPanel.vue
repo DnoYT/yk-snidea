@@ -29,7 +29,7 @@
         <Icon icon="carbon:category" /> 规范
       </div>
       <div :class="['tab-item', { active: activeTab === 'diff' }]" @click="activeTab = 'diff'">
-        <Icon icon="carbon:code" /> 格式(Diff/JSON)
+        <Icon icon="carbon:code" /> AI输出格式
       </div>
     </div>
 
