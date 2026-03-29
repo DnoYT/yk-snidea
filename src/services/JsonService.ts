@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import { LoggerService } from './LoggerService';
 
 /**
  * JSON 结构化解析与替换服务
@@ -49,8 +50,10 @@ export class JsonService {
         let successCount = 0;
         const matchCount = data.changes.length;
 
+        LoggerService.log(`--- 开始处理 JSON 修改 (共 ${data.changes.length} 项) ---`);
         for (const change of data.changes) {
             if (!change.file || !change.action) {
+                LoggerService.log('跳过无效的 change 项', 'WARN');
                 continue;
             }
 

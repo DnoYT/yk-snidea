@@ -10,20 +10,53 @@ export interface Role {
 export interface Rule { id: string; name: string; content: string; }
 export interface Profile { id: string; name: string; ruleIds: string[]; }
 
+/**
+ * 配置管理服务：处理全局状态持久化及工作区配置导出
+ */
 export class ConfigService {
     private readonly ROLES_KEY = 'yk-snidea.roles';
     private readonly RULES_KEY = 'yk-snidea.rules';
     private readonly PROFILES_KEY = 'yk-snidea.profiles';
     private readonly DIFF_CONFIG_KEY = 'yk-snidea.diffConfig';
     private readonly JSON_CONFIG_KEY = 'yk-snidea.jsonConfig';
+    private readonly XML_CONFIG_KEY = 'yk-snidea.xmlConfig';
 
     constructor(private readonly _context: vscode.ExtensionContext) { }
 
-    // --- 通用获取方法 ---
-    public getRoles(): Role[] { return this._context.globalState.get<Role[]>(this.ROLES_KEY, []); }
-    public getRules(): Rule[] { return this._context.globalState.get<Rule[]>(this.RULES_KEY, []); }
-    public getProfiles(): Profile[] { return this._context.globalState.get<Profile[]>(this.PROFILES_KEY, []); }
+    /**
+     * 从资源目录读取默认提示词，失败则返回降级文本
+     */
+    private _getDefaultPrompt(filename: string, fallback: string): string {
+        const filePath = path.join(this._context.extensionPath, 'resources', 'prompts', filename);
 
+        if (!fs.existsSync(filePath)) {
+            return fallback;
+        }
+
+        try {
+            return fs.readFileSync(filePath, 'utf-8');
+        } catch (error) {
+            return fallback;
+        }
+    }
+
+    // --- 基础数据获取 (提前返回模式) ---
+
+    public getRoles(): Role[] {
+        return this._context.globalState.get<Role[]>(this.ROLES_KEY, []);
+    }
+
+    public getRules(): Rule[] {
+        return this._context.globalState.get<Rule[]>(this.RULES_KEY, []);
+    }
+
+    public getProfiles(): Profile[] {
+        return this._context.globalState.get<Profile[]>(this.PROFILES_KEY, []);
+    }
+
+    /**
+     * 保存 Prompt 为 Markdown 文件到 .ykide 目录
+     */
     public async savePromptAsMarkdown(content: string, firstFileName: string = 'prompt'): Promise<string> {
         const workspaceFolders = vscode.workspace.workspaceFolders;
         if (!workspaceFolders) {
@@ -32,16 +65,13 @@ export class ConfigService {
 
         const rootPath = workspaceFolders[0].uri.fsPath;
         const ykideDir = path.join(rootPath, '.ykide');
-        if (!fs.existsSync(ykideDir)) {
-            fs.mkdirSync(ykideDir);
-        }
 
-        // 清理文件名中的非法字符
+        this._ensureDir(ykideDir);
+
         const safeBaseName = path.basename(firstFileName).replace(/[\\/:*?"<>|]/g, '_');
-
-        // 计算序号：查找已存在的文件 {{name}}_{{index}}.md
         let index = 1;
         let finalPath = '';
+
         while (true) {
             const fileName = `${safeBaseName}_${index}.md`;
             finalPath = path.join(ykideDir, fileName);
@@ -55,53 +85,47 @@ export class ConfigService {
         return finalPath;
     }
 
-
-    private _getPromptConfigPath(): string | undefined {
-        const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (!workspaceFolders) {
-            return undefined;
-        }
-        const rootPath = workspaceFolders[0].uri.fsPath;
-        const dir = path.join(rootPath, '.ykide');
+    private _ensureDir(dir: string): void {
         if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
         }
+    }
+
+    private _getPromptConfigPath(): string | undefined {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders) return undefined;
+
+        const rootPath = workspaceFolders[0].uri.fsPath;
+        const dir = path.join(rootPath, '.ykide');
+        this._ensureDir(dir);
+
         return path.join(dir, 'prompt-config.json');
     }
 
-    // 保存主界面配置
     public async savePromptConfig(data: any): Promise<void> {
         const filePath = this._getPromptConfigPath();
-        if (!filePath) { return; };
-
+        if (!filePath) return;
         fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
     }
 
-    // 获取主界面配置
     public getPromptConfig(): any {
         const filePath = this._getPromptConfigPath();
-        if (filePath && fs.existsSync(filePath)) {
-            try {
-                return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-            } catch (e) {
-                return null;
-            }
+        if (!filePath || !fs.existsSync(filePath)) return null;
+
+        try {
+            return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+        } catch {
+            return null;
         }
-        return null;
     }
 
+    // --- 角色/规则管理 ---
 
-    // --- 角色管理 (Roles) ---
     public async saveRole(role: Role): Promise<void> {
         const data = this.getRoles();
         const index = data.findIndex(item => item.id === role.id);
-
-        if (index > -1) {
-            data[index] = role;
-            await this._context.globalState.update(this.ROLES_KEY, [...data]);
-            return;
-        }
-        await this._context.globalState.update(this.ROLES_KEY, [...data, role]);
+        const newData = index > -1 ? data.map((it, i) => i === index ? role : it) : [...data, role];
+        await this._context.globalState.update(this.ROLES_KEY, newData);
     }
 
     public async deleteRole(id: string): Promise<void> {
@@ -109,17 +133,11 @@ export class ConfigService {
         await this._context.globalState.update(this.ROLES_KEY, filtered);
     }
 
-    // --- 规则管理 (Rules) ---
     public async saveRule(rule: Rule): Promise<void> {
         const data = this.getRules();
         const index = data.findIndex(item => item.id === rule.id);
-
-        if (index > -1) {
-            data[index] = rule;
-            await this._context.globalState.update(this.RULES_KEY, [...data]);
-            return;
-        }
-        await this._context.globalState.update(this.RULES_KEY, [...data, rule]);
+        const newData = index > -1 ? data.map((it, i) => i === index ? rule : it) : [...data, rule];
+        await this._context.globalState.update(this.RULES_KEY, newData);
     }
 
     public async deleteRule(id: string): Promise<void> {
@@ -127,33 +145,29 @@ export class ConfigService {
         await this._context.globalState.update(this.RULES_KEY, filtered);
     }
 
-    // --- Diff 配置管理 ---
+    // --- 协议配置管理 (Diff/JSON/XML) ---
+
     public getDiffConfig(): any {
-        return this._context.globalState.get(this.DIFF_CONFIG_KEY, {
+        const config = this._context.globalState.get<any>(this.DIFF_CONFIG_KEY);
+        if (config && config.prompt) return config;
+
+        return {
             enabled: true,
-            prompt: `*** CRITICAL OUTPUT FORMATTING INSTRUCTIONS ***\n(Append this to the very end of your responses, ensuring seamless integration into the developer's workflow.)\n\nTo prevent the web browser UI from rendering git-conflict markers or diff formatting, you MUST strictly adhere to the following raw text rules. \n\n1. **STRICT RAW TEXT BLOCKS:** Every single modification must be enclosed in a \`\`\`text ... \`\`\` block. ABSOLUTELY DO NOT use \`\`\`diff\`, \`\`\`javascript\`, \`\`\`html\`, or any other language tag. \n2. **EXACT SEARCH/REPLACE TEMPLATE:**\n   File: [Relative/File/Path.ext]\n   <<<<<<< SEARCH\n   [Insert EXACT existing code here. Must include 3-5 lines of unchanged context to ensure global uniqueness for Ctrl+F/Cmd+F]\n   =======\n   [Insert modified code here]\n   >>>>>>> REPLACE\n\n3. **NEW FILES:** If creating a new file, leave the SEARCH block completely empty (i.e., immediately place \`=======\` below \`<<<<<<< SEARCH\`).\n4. **NO TRUNCATION & NO REDUNDANCY:** Do not output the entire file. Only output the modified chunks. Do not add explanatory comments inside the code block unless they belong to the actual source code.\n5. **RESPONSE STRUCTURE:**\n   - **Phase 1 (Before code):** Briefly list the root causes of the issue using bullet points (-).\n   - **Phase 2 (The Code):** Output ONLY the raw text blocks formatted exactly as above.\n   - **Phase 3 (After code):** Briefly explain the next steps, any missing files, or pending logic that needs to be addressed.`
-        });
+            prompt: this._getDefaultPrompt('diff-prompt.md', 'Fallback Diff Prompt')
+        };
     }
 
     public async saveDiffConfig(config: any): Promise<void> {
         await this._context.globalState.update(this.DIFF_CONFIG_KEY, config);
     }
 
-    // --- JSON 配置管理 ---
     public getJsonConfig(): any {
-        const fallbackPrompt = `### SYSTEM: STRUCTURED JSON UPDATE PROTOCOL ###\n\nYou must output all file modifications as a single, valid JSON object. This is for programmatic parsing. \n\n**1. OUTPUT FORMAT:**\nWrap the final JSON in a single \`\`\`json ... \`\`\` code block.\n\n**2. JSON SCHEMA:**\nThe JSON must follow this structure:\n{\n  "changes": [\n    {\n      "file": "path/to/file.ext",\n      "action": "replace", \n      "search": "exact text to find",\n      "replace": "new text to insert"\n    }\n  ]\n}\n*Note: Use "action": "create" for new files (leave "search" empty).*\n\n**3. CRITICAL RULES:**\n- **NO ESCAPING ERRORS:** Ensure all newlines in the code are represented as \\n and double quotes are correctly escaped as \\" within the JSON strings.\n- **UNIQUENESS:** The \`search\` string must be long enough (3-5 lines of context) to be globally unique within the file.\n- **NO COMMENTARY:** Do not include any text outside the JSON block unless explicitly asked for a summary.`;
-
         const config = this._context.globalState.get<any>(this.JSON_CONFIG_KEY);
+        if (config && config.prompt) return config;
 
-        // 提前返回：如果已有配置且包含內容，則直接返回
-        if (config && config.prompt) {
-            return config;
-        }
-
-        // 否則返回默認結構
         return {
             enabled: true,
-            prompt: fallbackPrompt
+            prompt: this._getDefaultPrompt('json-prompt.md', 'Fallback JSON Prompt')
         };
     }
 
@@ -161,25 +175,32 @@ export class ConfigService {
         await this._context.globalState.update(this.JSON_CONFIG_KEY, config);
     }
 
-    public async resetDiffConfig(): Promise<void> {
-        await this._context.globalState.update(this.DIFF_CONFIG_KEY, undefined);
+    public getXmlConfig(): any {
+        const config = this._context.globalState.get<any>(this.XML_CONFIG_KEY);
+        if (config && config.prompt) return config;
+
+        return {
+            enabled: true,
+            prompt: this._getDefaultPrompt('xml-prompt.md', 'Fallback XML Prompt')
+        };
     }
 
-    public async resetJsonConfig(): Promise<void> {
-        await this._context.globalState.update(this.JSON_CONFIG_KEY, undefined);
+    public async saveXmlConfig(config: any): Promise<void> {
+        await this._context.globalState.update(this.XML_CONFIG_KEY, config);
     }
+
+    // --- 重置方法 ---
+    public async resetDiffConfig(): Promise<void> { await this._context.globalState.update(this.DIFF_CONFIG_KEY, undefined); }
+    public async resetJsonConfig(): Promise<void> { await this._context.globalState.update(this.JSON_CONFIG_KEY, undefined); }
+    public async resetXmlConfig(): Promise<void> { await this._context.globalState.update(this.XML_CONFIG_KEY, undefined); }
 
     // --- 规范管理 (Profiles) ---
+
     public async saveProfile(profile: Profile): Promise<void> {
         const data = this.getProfiles();
         const index = data.findIndex(item => item.id === profile.id);
-
-        if (index > -1) {
-            data[index] = profile;
-            await this._context.globalState.update(this.PROFILES_KEY, [...data]);
-            return;
-        }
-        await this._context.globalState.update(this.PROFILES_KEY, [...data, profile]);
+        const newData = index > -1 ? data.map((it, i) => i === index ? profile : it) : [...data, profile];
+        await this._context.globalState.update(this.PROFILES_KEY, newData);
     }
 
     public async deleteProfile(id: string): Promise<void> {
@@ -187,101 +208,71 @@ export class ConfigService {
         await this._context.globalState.update(this.PROFILES_KEY, filtered);
     }
 
-    /**
-     * 初次安装：自动导入初始化配置 (供 extension.ts 激活时调用)
-     */
     public async initDefaultsIfNeeded(): Promise<void> {
         const isInitialized = this._context.globalState.get<boolean>('yk-snidea.initialized', false);
-        if (isInitialized) {
-            return;
-        }
+        if (isInitialized) return;
 
         const initJsonPath = path.join(this._context.extensionPath, 'init.json');
-        if (!fs.existsSync(initJsonPath)) {
-            return;
-        }
+        if (!fs.existsSync(initJsonPath)) return;
 
         try {
             const content = fs.readFileSync(initJsonPath, 'utf-8');
             const parsed = JSON.parse(content);
 
-            if (parsed.roles) { await this._context.globalState.update(this.ROLES_KEY, parsed.roles); }
-            if (parsed.rules) { await this._context.globalState.update(this.RULES_KEY, parsed.rules); }
-            if (parsed.profiles) { await this._context.globalState.update(this.PROFILES_KEY, parsed.profiles); }
-            if (parsed.diffConfig) { await this._context.globalState.update(this.DIFF_CONFIG_KEY, parsed.diffConfig); }
-            if (parsed.jsonConfig) { await this._context.globalState.update(this.JSON_CONFIG_KEY, parsed.jsonConfig); }
+            if (parsed.roles) await this._context.globalState.update(this.ROLES_KEY, parsed.roles);
+            if (parsed.rules) await this._context.globalState.update(this.RULES_KEY, parsed.rules);
+            if (parsed.profiles) await this._context.globalState.update(this.PROFILES_KEY, parsed.profiles);
+            if (parsed.diffConfig) await this._context.globalState.update(this.DIFF_CONFIG_KEY, parsed.diffConfig);
+            if (parsed.jsonConfig) await this._context.globalState.update(this.JSON_CONFIG_KEY, parsed.jsonConfig);
+            if (parsed.xmlConfig) await this._context.globalState.update(this.XML_CONFIG_KEY, parsed.xmlConfig);
 
             await this._context.globalState.update('yk-snidea.initialized', true);
-            console.log("[ConfigService] 首次安装，已成功导入基础配置。");
         } catch (e) {
-            console.error("初始化配置文件解析失败", e);
+            console.error("[ConfigService] 初始化失败", e);
         }
     }
 
-    // --- 核心解析逻辑 ---
     public resolveProfileToText(profileId: string): string {
         const profile = this.getProfiles().find(p => p.id === profileId);
-        if (!profile) {
-            return '未绑定特定开发规范。';
-        }
+        if (!profile) return '未绑定特定开发规范。';
 
         const allRules = this.getRules();
         const activeRules = profile.ruleIds
             .map(id => allRules.find(r => r.id === id))
             .filter(r => !!r) as Rule[];
 
-        if (activeRules.length === 0) {
-            return '该规范下暂无具体规则内容。';
-        }
+        if (activeRules.length === 0) return '该规范下暂无具体规则内容。';
 
         return activeRules.map((r, i) => `${i + 1}. ${r.content}`).join('\n');
     }
 
-    /**
-     * 导出所有配置到当前工作区的 .ykide 文件夹
-     */
     public async exportConfiguration(): Promise<void> {
-        console.log("导出到配置");
-
         const workspaceFolders = vscode.workspace.workspaceFolders;
-
-        // 提前返回：未打开文件夹
         if (!workspaceFolders || workspaceFolders.length === 0) {
-            vscode.window.showErrorMessage('未找到有效工作区，无法导出配置');
+            vscode.window.showErrorMessage('未找到有效工作区');
             return;
         }
 
         const rootPath = workspaceFolders[0].uri.fsPath;
         const targetDir = path.join(rootPath, '.ykide');
+        this._ensureDir(targetDir);
 
-        // 确保目录存在 (无 else)
-        if (!fs.existsSync(targetDir)) {
-            fs.mkdirSync(targetDir, { recursive: true });
-        }
-
-        // 构造数据
         const exportData = {
-            version: "1.0.0",
+            version: "1.1.0",
             exportTime: new Date().toLocaleString(),
             roles: this.getRoles(),
             rules: this.getRules(),
-            profiles: this.getProfiles()
+            profiles: this.getProfiles(),
+            xmlConfig: this.getXmlConfig()
         };
 
-        // 构造文件名: yk-ide_202603191256.json
         const timeStr = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12);
         const fileName = `yk-ide_${timeStr}.json`;
         const filePath = path.join(targetDir, fileName);
 
         try {
             fs.writeFileSync(filePath, JSON.stringify(exportData, null, 2), 'utf-8');
-
-            // 弹出成功提示并提供“打开文件夹”按钮
-            const action = await vscode.window.showInformationMessage(
-                `配置已成功导出至: .ykide/${fileName}`,
-                '打开文件夹'
-            );
-
+            const action = await vscode.window.showInformationMessage(`导出成功: .ykide/${fileName}`, '打开文件夹');
             if (action === '打开文件夹') {
                 vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(filePath));
             }
