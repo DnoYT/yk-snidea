@@ -13,7 +13,7 @@ export class LoggerService {
      */
     public static log(message: string, level: 'INFO' | 'WARN' | 'DEBUG' | 'ERROR' = 'INFO'): void {
         const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (!workspaceFolders) return;
+        if (!workspaceFolders) { return; };
 
         const rootPath = workspaceFolders[0].uri.fsPath;
         const logDir = path.join(rootPath, '.ykide', 'log');

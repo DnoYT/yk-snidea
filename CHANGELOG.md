@@ -2,6 +2,17 @@
 
 All notable changes to the "yk-snidea" extension will be documented in this file.
 
+## [1.0.6] - 2026-03-29
+### Added
+- Enhanced logging for `XmlService`: Logs full `SEARCH` block content on match failure for easier debugging.
+- Visual highlighting for the XML parsing button in the main form.
+### Changed
+- Renamed "Apply" buttons to "Parse" across the Webview UI.
+- Refactored `XmlService` and `ConfigService` to strictly follow Early Return (no-else) patterns.
+- Optimized button rendering logic using `v-for` for better maintainability.
+### Fixed
+- ESLint `curly` warnings across multiple service files.
+
 ## [1.0.5] - 2026-03-28
 ### Added
 - Dual-column rule tree layout with "Smart Recommendation" and "Full Library".

@@ -259,7 +259,7 @@ export class ConfigService {
             .map(id => allRules.find(r => r.id === id))
             .filter(r => !!r) as Rule[];
 
-        if (activeRules.length === 0) return '该规范下暂无具体规则内容。';
+        if (activeRules.length === 0) { return '该规范下暂无具体规则内容。'; }
 
         return activeRules.map((r, i) => `${i + 1}. ${r.content}`).join('\n');
     }

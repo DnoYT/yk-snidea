@@ -2,7 +2,7 @@
   "name": "yk-snidea",
   "displayName": "YK Snidea - AI 提示词 | 数据库 AI 助手",
   "description": "开发上下文整理神器：专为网页版大模型对话设计，一键拼装高质量 Prompt (提示词)，自动读取本地代码与数据库表结构，告别昂贵订阅。",
-  "version": "1.0.8",
+  "version": "1.0.6",
   "icon": "logo.png",
   "publisher": "Guangxi-Yunke",
   "author": "云天",

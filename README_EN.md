@@ -18,6 +18,17 @@ By precisely extracting local code and database context, it assembles high-quali
   * **Atomic Rule Pool**: Group rules by tech stack (e.g., `[vue]`, `[php]`).
   * **Smart Recommendation**: New dual-tree layout with file-suffix awareness for quick rule selection.
 
+## 📅 Version Records
+
+### 1.0.6 (2026-03-29)
+
+* 🚀 **XML Engine & Interaction Weighting**:
+  * **Weighted UI Refactor**: Enhanced the visual priority of the "Parse XML" button to reflect its role as the primary update protocol.
+  * **Semantic Precision**: Renamed "Apply" actions to "Parse" to better describe the clipboard-to-workspace execution flow.
+  * **Diagnostic Logging**: Added full content logging for failed `SEARCH` blocks, allowing users to instantly identify mismatch causes.
+* 🛠️ **Architectural Standardization**:
+  * **Full Early Return Implementation**: Refactored core services to eliminate `else` keywords and ensure strict block-level scoping.
+
 ## 🛠️ Quick Start
 
 1. **Open**: Click the YK Snidea icon in the sidebar.
