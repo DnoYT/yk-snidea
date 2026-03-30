@@ -12,13 +12,21 @@ By precisely extracting local code and database context, it assembles high-quali
   * **Use `#`**: Retrieve MySQL table schemas with DDL hover previews.
   * **🌳 Structure Awareness**: Generate project file trees with custom ignore rules.
 * **🚀 Automated Code Application (Diff/Replace)**:
-  * **Smart Parsing**: Supports `SEARCH/REPLACE` blocks and JSON structured updates.
-  * **Seamless Apply**: Apply changes from clipboard with directory auto-creation.
+  * **State Machine Engine**: Robust line-by-line parsing that eliminates regex performance bottlenecks and tag-mismatch bugs.
+  * **Sliding Window Alignment**: Professional semantic matching algorithm. Handles AI "translation hallucinations" and mixed line-endings effortlessly.
+  * **60% Confidence Resilience**: Guaranteed to find and fix code locations even when AI outputs are slightly inconsistent with source files.
 * **🌳 Modular Development Profiles**:
   * **Atomic Rule Pool**: Group rules by tech stack (e.g., `[vue]`, `[php]`).
   * **Smart Recommendation**: New dual-tree layout with file-suffix awareness for quick rule selection.
 
 ## 📅 Version Records
+
+### 1.0.7 (2026-03-30)
+
+* 💎 **Engine 5.5: Sliding Window Semantic Alignment**:
+  - **Structural Reliability**: Transitioned to a State Machine parser, securing the system against code payloads containing conflicting XML markers.
+  - **Semantic Intelligence**: New Sliding Window algorithm matches code based on character-tokens rather than strict strings, overcoming AI variances and formatting drift.
+  - **Physical Row Splicing**: High-precision array-based updates ensure only the intended code section is modified, even in files with recurring patterns.
 
 ### 1.0.6 (2026-03-29)
 
