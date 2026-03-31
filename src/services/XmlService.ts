@@ -87,13 +87,19 @@ export class XmlService {
                     state = 'IN_SEARCH';
                     continue;
                 }
-            } else if (state === 'IN_SEARCH') {
+                continue;
+            }
+
+            if (state === 'IN_SEARCH') {
                 if (/^\s*=======\s*$/i.test(line)) {
                     state = 'IN_REPLACE';
                     continue;
                 }
                 currentBlock!.search.push(line);
-            } else if (state === 'IN_REPLACE') {
+                continue;
+            }
+
+            if (state === 'IN_REPLACE') {
                 if (/^\s*>>>>>>>\s*REPLACE/i.test(line)) {
                     // 核心边界：当前块收集完毕，推入队列
                     blocks.push(currentBlock!);
@@ -102,6 +108,7 @@ export class XmlService {
                     continue;
                 }
                 currentBlock!.replace.push(line);
+                continue;
             }
         }
 
@@ -258,8 +265,8 @@ export class XmlService {
      */
     private async _handleReplaceAction(absPath: string, search: string, replace: string, action: string): Promise<boolean> {
         if (!fs.existsSync(absPath)) {
-            LoggerService.log(`[替换失败] 文件不存在: ${absPath}`, 'ERROR');
-            return false;
+            LoggerService.log(`[文件不存在] 自动切换为创建文件模式: ${absPath}`, 'INFO');
+            return this._handleCreateAction(absPath, replace);
         }
 
         const original = fs.readFileSync(absPath, 'utf-8');
@@ -272,6 +279,19 @@ export class XmlService {
         if (!normalizedSearch && action === 'replace') {
             LoggerService.log(`[匹配失败] SEARCH 内容不能为空块: ${absPath}`, 'WARN');
             return false;
+        }
+
+        /**
+         * 替换前置检查 (Pre-check) - 防止重复替换与无用操作
+         */
+        if (normalizedSearch === normalizedReplace) {
+            LoggerService.log(`[跳过] SEARCH 和 REPLACE 内容完全一致，无需修改: ${absPath}`, 'INFO');
+            return true;
+        }
+
+        if (normalizedReplace && content.includes(normalizedReplace) && !content.includes(normalizedSearch)) {
+            LoggerService.log(`[跳过] 文件似乎已包含 REPLACE 目标内容，可能已被处理过: ${absPath}`, 'INFO');
+            return true; // 当作成功处理，避免对外抛出错误
         }
 
         // 策略 1：尝试严格匹配 (High Performance)

@@ -2,6 +2,18 @@
 
 All notable changes to the "yk-snidea" extension will be documented in this file.
 
+## [1.0.8] - 2026-03-31
+
+### Added
+
+- **Smart Fallback Mechanism**: If the file target for a `replace` action does not exist, the engine now automatically downgrades to `create` mode, ensuring no code updates are lost.
+- **Idempotency Protection (Pre-check)**: Added a safety layer that skips replacement if the `SEARCH` and `REPLACE` blocks are identical, or if the file already contains the `REPLACE` content. This prevents redundant writes and code corruption.
+
+### Changed
+
+- **Zero-Else Refactor**: Achieved 100% "Early Return" coverage in `XmlService.ts`, significantly reducing cyclomatic complexity.
+- **Enhanced XML Protocol (v2.0)**: Updated internal system prompts to leverage the new resilient replacement logic.
+
 ## [1.0.7] - 2026-03-30
 
 ### Added

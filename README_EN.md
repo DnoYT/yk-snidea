@@ -21,6 +21,13 @@ By precisely extracting local code and database context, it assembles high-quali
 
 ## 📅 Version Records
 
+### 1.0.8 (2026-03-31)
+
+* 🛡️ **Resilience Leap: Smart Fallback & Idempotency**:
+  - **Auto-fallback to Create**: If `path` is missing during a `replace` action, the engine now automatically creates the directory structure and the file.
+  - **Idempotency Shield**: Implemented a pre-check mechanism. The system intelligently skips updates if the file already reflects the `REPLACE` content, preventing corrupted re-applications.
+  - **Zero-Else Architecture**: Refactored core logic to strictly follow the Early Return pattern for maximum readability and performance.
+
 ### 1.0.7 (2026-03-30)
 
 * 💎 **Engine 5.5: Sliding Window Semantic Alignment**:

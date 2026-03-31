@@ -12,7 +12,7 @@ Each modification MUST be enclosed in a Markdown ```text ...``` code block. ABSO
 Use the following format for each block:
 
 ```text
-<file_change path="relative/path/to/file.ext" action="replace">
+<file_change path="{Relative file path}" action="{type: replace|create}">
 <<<<<<< SEARCH
 [Insert EXACT existing code here. Must include 3-5 lines of unchanged context to ensure global uniqueness]
 =======
